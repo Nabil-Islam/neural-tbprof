@@ -1,0 +1,14 @@
+                run          drug classification      tool
+0        ERR2517597      amikacin             FN  Illumina
+1        ERR4796945      amikacin             TP  Illumina
+2        ERR8975795      amikacin             TP  Illumina
+3        ERR4799185      amikacin             FN  Illumina
+4        ERR4831274      amikacin             TP  Illumina
+...             ...           ...            ...       ...
+670630   ERR4812014  streptomycin             FN  Illumina
+670631   SRR2101152  streptomycin             FN  Illumina
+670632   SRR6832451  streptomycin             FP  Illumina
+670633  SRR16058417  streptomycin             FN  Illumina
+670634   ERR4813399  streptomycin             FP  Illumina
+
+[670635 rows x 4 columns]
