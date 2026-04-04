@@ -110,10 +110,10 @@ if arg == "er":
 if arg == "who":
     df.to_csv(results/"who_predictions.csv", index=False)
 
-model_name = "model.keras"
-save_path = results / model_name
-large_model.save(save_path)
-print(f"Saved Keras model to: {save_path}")
+print(tf.__version__)
+print(tfjs.__version__)
+
+large_model.save(results / "large_model.h5")
 
 tfjs.converters.save_keras_model(large_model, results / "tfjs_model")
 print(f"Saved TFJS model to: {results / 'tfjs_model'}")

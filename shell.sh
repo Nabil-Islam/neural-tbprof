@@ -34,13 +34,12 @@ dir="/data/scratch/projects/punim1703/nn_tb/REVISION/scripts"
 res="/data/scratch/projects/punim1703/nn_tb/REVISION/results"
 sample="er"
 
-python3 "$dir/make_index.py" "$sample"
-python3 "$dir/weights.py" "$sample"
+# python3 "$dir/make_index.py" "$sample"
+# python3 "$dir/weights.py" "$sample"
 python3 "$dir/forward_pass.py" "$sample"
+tensorflowjs_converter --input_format=keras "$res/large_model.h5" "$res/tfjs_model"
 
-tensorflowjs_converter --input_format=keras "$res/model.h5" "$res/tfjs"
-
-python3 "$dir/comp.py"
+#python3 "$dir/comp.py"
 
 ##DO NOT ADD/EDIT BEYOND THIS LINE##
 ##Job monitor command to list the resource usage
