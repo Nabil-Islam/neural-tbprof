@@ -11,7 +11,7 @@ results = workflow/"results"
 data = workflow/"data"
 arg = sys.argv[1]
 
-with open("/data/scratch/projects/punim1703/nn_tb/REVISION/results/weight_matrix.json") as f:
+with open("/data/scratch/projects/punim1703/nn_tb/REVISION/results/who_snps.json") as f:
     weight_m = json.load(f)
 name = "who"
 
@@ -26,7 +26,7 @@ if arg == "er":
                 continue
             weight_m.setdefault(drug.capitalize(), {})[snp] = 1
 
-    with open('/data/scratch/projects/punim1703/nn_tb/REVISION/results/FINAL_SNP.json', 'w') as f:
+    with open('/data/scratch/projects/punim1703/nn_tb/REVISION/results/combined_snps.json', 'w') as f:
         json.dump(weight_m, f)
 
 snp_set = set()

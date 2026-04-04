@@ -9,12 +9,12 @@ results = workflow/"results"
 arg = sys.argv[1]
 
 if arg == "er":
-    with open(results/'FINAL_SNP.json', 'r') as f:
+    with open(results/'combined_snps.json', 'r') as f:
         weight_m = json.load(f)
     name = "expert_rules"
 
 if arg == "who":
-    with open(results/'weight_matrix.json', 'r') as f:
+    with open(results/'who_snps.json', 'r') as f:
         weight_m = json.load(f)
     name = "who"
 

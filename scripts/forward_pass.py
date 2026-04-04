@@ -7,6 +7,7 @@ import json
 import scipy.sparse as sp
 import pandas as pd
 import sys
+import tensorflowjs as tfjs
 
 workflow = Path.cwd()
 results = workflow/"results"
@@ -21,12 +22,12 @@ with open(results/"vcf_list.txt") as f:
         vcfs.append(vcf.strip('\n'))
 
 if arg == "er":
-    with open(results/'FINAL_SNP.json') as f:
+    with open(results/'combined_snps.json') as f:
         snp_dict = json.load(f)
     name = "expert_rules"
 
 if arg == "who":
-    with open(results/'weight_matrix.json', 'r') as f:
+    with open(results/'who_snps.json', 'r') as f:
         snp_dict = json.load(f)
     name = "who"
 
@@ -108,3 +109,11 @@ if arg == "er":
 
 if arg == "who":
     df.to_csv(results/"who_predictions.csv", index=False)
+
+model_name = "model.keras"
+save_path = results / model_name
+large_model.save(save_path)
+print(f"Saved Keras model to: {save_path}")
+
+tfjs.converters.save_keras_model(large_model, results / "tfjs_model")
+print(f"Saved TFJS model to: {results / 'tfjs_model'}")

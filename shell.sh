@@ -31,13 +31,17 @@ if [ "x$SLURM_JOB_ID" == "x" ]; then
 fi
 
 dir="/data/scratch/projects/punim1703/nn_tb/REVISION/scripts"
+res="/data/scratch/projects/punim1703/nn_tb/REVISION/results"
+sample="er"
 
-for sample in who er; do
-  python3 "$dir/make_index.py" "$sample"
-  python3 "$dir/weights.py" "$sample"
-  python3 "$dir/forward_pass.py" "$sample"
-done
+python3 "$dir/make_index.py" "$sample"
+python3 "$dir/weights.py" "$sample"
+python3 "$dir/forward_pass.py" "$sample"
+
+tensorflowjs_converter --input_format=keras "$res/model.h5" "$res/tfjs"
+
 python3 "$dir/comp.py"
+
 ##DO NOT ADD/EDIT BEYOND THIS LINE##
 ##Job monitor command to list the resource usage
 my-job-stats -a -n -s

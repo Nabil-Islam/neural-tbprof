@@ -17,7 +17,7 @@ with open(NN_RESULTS / "FINAL_SNP.json") as f:
     er_weights = json.load(f)
 er_nn = pd.read_csv(NN_RESULTS / "er_predictions.csv")
 
-with open(NN_RESULTS / "weight_matrix.json") as f:
+with open(NN_RESULTS / "who_snps.json") as f:
     who_weights = json.load(f)
 who_nn = pd.read_csv(NN_RESULTS / "who_predictions.csv")
 
