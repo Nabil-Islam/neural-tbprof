@@ -1,0 +1,117 @@
+2026-04-05 09:28:32.361214: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-04-05 09:28:32.364083: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:32] Could not find cuda drivers on your machine, GPU will not be used.
+2026-04-05 09:28:32.425437: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:32] Could not find cuda drivers on your machine, GPU will not be used.
+2026-04-05 09:28:32.448869: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1775345312.482381   62593 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1775345312.491439   62593 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1775345312.559321   62593 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1775345312.559409   62593 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1775345312.559413   62593 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1775345312.559418   62593 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-04-05 09:28:32.565277: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX512_FP16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+Traceback (most recent call last):
+  File "/data/scratch/projects/punim1703/nn_tb/REVISION/scripts/forward_pass.py", line 10, in <module>
+    import tensorflowjs as tfjs
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflowjs/__init__.py", line 21, in <module>
+    from tensorflowjs import converters
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflowjs/converters/__init__.py", line 21, in <module>
+    from tensorflowjs.converters.converter import convert
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflowjs/converters/converter.py", line 37, in <module>
+    from tensorflowjs.converters import tf_saved_model_conversion_v2
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflowjs/converters/tf_saved_model_conversion_v2.py", line 28, in <module>
+    import tensorflow_decision_forests
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflow_decision_forests/__init__.py", line 64, in <module>
+    from tensorflow_decision_forests import keras
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflow_decision_forests/keras/__init__.py", line 53, in <module>
+    from tensorflow_decision_forests.keras import core
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflow_decision_forests/keras/core.py", line 62, in <module>
+    from tensorflow_decision_forests.component.inspector import inspector as inspector_lib
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflow_decision_forests/component/inspector/inspector.py", line 64, in <module>
+    from tensorflow_decision_forests.component import py_tree
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflow_decision_forests/component/py_tree/__init__.py", line 20, in <module>
+    from tensorflow_decision_forests.component.py_tree import condition
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflow_decision_forests/component/py_tree/condition.py", line 26, in <module>
+    from tensorflow_decision_forests.component.py_tree import dataspec as dataspec_lib
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflow_decision_forests/component/py_tree/dataspec.py", line 24, in <module>
+    from yggdrasil_decision_forests.dataset import data_spec_pb2
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/yggdrasil_decision_forests/dataset/data_spec_pb2.py", line 12, in <module>
+    _runtime_version.ValidateProtobufRuntimeVersion(
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/google/protobuf/runtime_version.py", line 100, in ValidateProtobufRuntimeVersion
+    _ReportVersionError(
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/google/protobuf/runtime_version.py", line 50, in _ReportVersionError
+    raise VersionError(msg)
+google.protobuf.runtime_version.VersionError: Detected incompatible Protobuf Gencode/Runtime versions when loading yggdrasil_decision_forests/dataset/data_spec.proto: gencode 6.31.1 runtime 5.29.6. Runtime version cannot be older than the linked gencode version. See Protobuf version guarantees at https://protobuf.dev/support/cross-version-runtime-guarantee.
+2026-04-05 09:28:42.129575: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-04-05 09:28:42.131430: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:32] Could not find cuda drivers on your machine, GPU will not be used.
+2026-04-05 09:28:42.134705: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:32] Could not find cuda drivers on your machine, GPU will not be used.
+2026-04-05 09:28:42.142273: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1775345322.154006   62799 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1775345322.157438   62799 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1775345322.167600   62799 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1775345322.167650   62799 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1775345322.167654   62799 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1775345322.167656   62799 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-04-05 09:28:42.170934: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX512_FP16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+Traceback (most recent call last):
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/bin/tensorflowjs_converter", line 3, in <module>
+    from tensorflowjs.converters.converter import pip_main
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflowjs/__init__.py", line 21, in <module>
+    from tensorflowjs import converters
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflowjs/converters/__init__.py", line 21, in <module>
+    from tensorflowjs.converters.converter import convert
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflowjs/converters/converter.py", line 37, in <module>
+    from tensorflowjs.converters import tf_saved_model_conversion_v2
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflowjs/converters/tf_saved_model_conversion_v2.py", line 28, in <module>
+    import tensorflow_decision_forests
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflow_decision_forests/__init__.py", line 64, in <module>
+    from tensorflow_decision_forests import keras
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflow_decision_forests/keras/__init__.py", line 53, in <module>
+    from tensorflow_decision_forests.keras import core
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflow_decision_forests/keras/core.py", line 62, in <module>
+    from tensorflow_decision_forests.component.inspector import inspector as inspector_lib
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflow_decision_forests/component/inspector/inspector.py", line 64, in <module>
+    from tensorflow_decision_forests.component import py_tree
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflow_decision_forests/component/py_tree/__init__.py", line 20, in <module>
+    from tensorflow_decision_forests.component.py_tree import condition
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflow_decision_forests/component/py_tree/condition.py", line 26, in <module>
+    from tensorflow_decision_forests.component.py_tree import dataspec as dataspec_lib
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/tensorflow_decision_forests/component/py_tree/dataspec.py", line 24, in <module>
+    from yggdrasil_decision_forests.dataset import data_spec_pb2
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/yggdrasil_decision_forests/dataset/data_spec_pb2.py", line 12, in <module>
+    _runtime_version.ValidateProtobufRuntimeVersion(
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/google/protobuf/runtime_version.py", line 100, in ValidateProtobufRuntimeVersion
+    _ReportVersionError(
+  File "/data/gpfs/projects/punim1703/anaconda3/envs/tfjs_export/lib/python3.10/site-packages/google/protobuf/runtime_version.py", line 50, in _ReportVersionError
+    raise VersionError(msg)
+google.protobuf.runtime_version.VersionError: Detected incompatible Protobuf Gencode/Runtime versions when loading yggdrasil_decision_forests/dataset/data_spec.proto: gencode 6.31.1 runtime 5.29.6. Runtime version cannot be older than the linked gencode version. See Protobuf version guarantees at https://protobuf.dev/support/cross-version-runtime-guarantee.
+Job ID           : 23622413
+Cluster          : spartan
+User/Project     : mdnabili/punim1703
+Nodes            : 1
+Wall-clock time  : 00:00:30 / 3-00:00:00
+
+Displaying overall resources usage from 2026-04-05 09:28:30 to 2026-04-05 09:29:00:
+
+NODE            CPU#        TOT%   ( USR   / SYS   / WIO   / IDLE  ) 
+
+spartan-bm146 : 
+                CPU# 1    : -2.0   (  -1.0 /  -1.0 /  -1.0 /  -1.0 ) 
+                CPU# 2    : -2.0   (  -1.0 /  -1.0 /  -1.0 /  -1.0 ) 
+                CPU# 3    : -2.0   (  -1.0 /  -1.0 /  -1.0 /  -1.0 ) 
+                CPU# 4    : -2.0   (  -1.0 /  -1.0 /  -1.0 /  -1.0 ) 
+                CPU# 5    : -2.0   (  -1.0 /  -1.0 /  -1.0 /  -1.0 ) 
+
+
+Allocated CPUs            : 5    
+  CPUs with usage <25%    : 5    
+  CPUs with usage <50%    : 0    
+  CPUs with usage >50%    : 0    
+
+Memory used (RAM)         : 0.9%  [505MB of 56204MB]
+
+--------------------------------------------
+
