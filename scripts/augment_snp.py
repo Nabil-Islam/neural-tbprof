@@ -26,6 +26,17 @@ for index, row in gff.iterrows():
     gff.loc[index, 'locus_tag'] = id.group(1) if id else 'null'
     gff.loc[index, 'name'] = name.group(1) if name else 'null'
 
+locus_to_name = {}
+for _, row in gff.iterrows():
+    if row['locus_tag'] != 'null' and row['name'] != 'null':
+        locus_to_name[row['locus_tag']] = row['name']
+
+for name in ['katG', 'pncA', 'rpoB', 'gyrA']:
+    match = {k: v for k, v in locus_to_name.items() if v == name}
+    print(f"{name}: {match}")
+
+print(locus_to_name.get('Rv0678'))
+
 for index, row in who_df.iterrows():
     who_df.at[index, "FINAL CONFIDENCE GRADING"] = row["FINAL CONFIDENCE GRADING"][0]
 
@@ -45,15 +56,23 @@ for i, row in who_df.iterrows():
     if gene not in drug_dict[drug]:
         drug_dict[drug].append(gene)
 
-for drug, genes in drug_dict.items():
-    for i, gene in enumerate(genes):
-        match = gff.loc[gff['name'] == gene, 'locus_tag']
-        drug_dict[drug][i] = match.iloc[0] if not match.empty else None
-
 print(drug_dict)
 
-INCLUDE_DRUGS = ('rifampicin', 'isoniazid', 'pyrazinamide',
-                 'ethionamide', 'streptomycin')
+LOF_ONLY_GENES = {
+    'isoniazid':    ['katG'],
+    'pyrazinamide': ['pncA'],
+    'ethionamide':  ['ethA'],
+    'streptomycin': ['gid'],
+    'capreomycin':  ['tlyA'],
+    'bedaquiline':  ['Rv0678', 'pepQ'],
+    'clofazimine':  ['Rv0678', 'pepQ'],
+    'delamanid':    ['ddn', 'fbiA', 'fbiB', 'fbiC', 'fgd1', 'Rv2983'],
+}
+
+RRDR_CODONS = range(426, 453)  # rpoB RRDR
+
+LOF_TYPES = {'stop_gained', 'frameshift_variant',
+             'feature_ablation', 'start_lost'}
 
 snp_dict = {drug: {} for drug in drug_dict.keys()}
 print(snp_dict)
@@ -90,26 +109,54 @@ for vcf in tqdm(vcfs, total=len(vcfs)):
             continue
 
         ann_s = ann.split('|')
-
+        if ann_s[1] in LOF_TYPES:
+            print(f"LoF found: {ann_s[1]}, gene: {ann_s[3]}, converted:"
+                  + "{locus_to_name.get(ann_s[3], ann_s[3])}")
         var_type = ann_s[1]
-
-        # Any non-expert rule drugs should be removed remove Lefo and Moxi
 
         if var_type in ('synonymous_variant'):
             continue
 
-        gene_name = ann_s[3]
-
+        gene_name = locus_to_name.get(ann_s[3], ann_s[3])
+        if ann_s[3] in ['Rv0678', 'Rv1908c', 'Rv0667', 'Rv2043c']:
+            print(f"locus: {ann_s[3]}, converted:" +
+                  "{gene_name}, var_type: {ann_s[1]}")
+            for drug, genes in resistant_drugs.items():
+                if gene_name in genes:
+                    print(f"  MATCH: {drug} -> {genes}")
         for drug, genes in resistant_drugs.items():
-            if drug.lower() not in INCLUDE_DRUGS:
-                continue
-            if gene_name in genes:
-                pos = variant.start + 1
-                ref = variant.REF
 
-                for alt in variant.ALT:
-                    snp_str = f'{pos}_{ref}_{alt}'
-                    snp_dict.setdefault(drug, {})[snp_str] = 1
+            drug_l = drug.lower()
+            if gene_name not in genes:
+                continue
+
+            # rpoB RRDR rule - non-synonymous with RRDR only
+            if drug_l == 'rifampicin' and gene_name == 'rpoB':
+                # adjust parsing as needed
+                codon_match = re.search(r'\d+', ann_s[9])
+                if not codon_match:
+                    continue
+                codon = int(codon_match.group())
+                if var_type == 'synonymous_variant' or codon not in RRDR_CODONS:
+                    continue
+
+            # LoF-only genes
+            elif gene_name in LOF_ONLY_GENES.get(drug_l, []):
+                if var_type not in LOF_TYPES:
+                    continue
+
+            # No expert rule for this drug/gene combo - skip augmentation entirely
+            else:
+                continue
+
+            pos = variant.start + 1
+            ref = variant.REF
+
+            for alt in variant.ALT:
+                snp_str = f'{pos}_{ref}_{alt}'
+                snp_dict.setdefault(drug, {})[snp_str] = 1
+        break
+print(drug_dict)
 print(snp_dict)
 
 with open("/data/scratch/projects/punim1703/nn_tb/REVISION/results/snp_aug.json", "w") as f:

@@ -110,10 +110,23 @@ if arg == "er":
 if arg == "who":
     df.to_csv(results/"who_predictions.csv", index=False)
 
-print(tf.__version__)
-print(tfjs.__version__)
+dense_input = Input(shape=(col_num,), sparse=False)
+dense_output = large_dense(dense_input)  # reuse trained layer, weights intact
+dense_model = Model(inputs=dense_input, outputs=dense_output)
 
-large_model.save(results / "large_model.h5")
+# save in all formats
+dense_model.save(results / 'forward_model.h5')
+dense_model.save(str(results / 'forward_model.keras'))
+tf.saved_model.save(dense_model, str(results / 'forward_model_saved'))
+
+
+converter = tf.lite.TFLiteConverter.from_keras_model(large_model)
+tflite_model = converter.convert()
+
+with open(results / 'forward_model.tflite', 'wb') as f:
+    f.write(tflite_model)
+
+print(f"Sved forward_model.tflite")
 
 tfjs.converters.save_keras_model(large_model, results / "tfjs_model")
-print(f"Saved TFJS model to: {results / 'tfjs_model'}")
+print(f"Saved TFJS model to {results / 'tfjs_model'}")

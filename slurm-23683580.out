@@ -1,0 +1,62 @@
+Traceback (most recent call last):
+  File "/data/scratch/projects/punim1703/nn_tb/REVISION/scripts/make_index.py", line 4, in <module>
+    from tqdm import tqdm
+ModuleNotFoundError: No module named 'tqdm'
+expert_rules
+{'Amikacin': 0, 'Bedaquiline': 1, 'Capreomycin': 2, 'Clofazimine': 3, 'Delamanid': 4, 'Ethambutol': 5, 'Ethionamide': 6, 'Isoniazid': 7, 'Kanamycin': 8, 'Levofloxacin': 9, 'Linezolid': 10, 'Moxifloxacin': 11, 'Pyrazinamide': 12, 'Rifampicin': 13, 'Streptomycin': 14}
+2026-04-07 16:45:25.516582: I tensorflow/core/util/port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+2026-04-07 16:45:25.519696: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:32] Could not find cuda drivers on your machine, GPU will not be used.
+2026-04-07 16:45:25.625153: I external/local_xla/xla/tsl/cuda/cudart_stub.cc:32] Could not find cuda drivers on your machine, GPU will not be used.
+2026-04-07 16:45:25.663606: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1775544325.713670   59027 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1775544325.722381   59027 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1775544325.806999   59027 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1775544325.807081   59027 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1775544325.807087   59027 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1775544325.807092   59027 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-04-07 16:45:25.822233: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 AVX512F AVX512_VNNI AVX512_BF16 AVX512_FP16 AVX_VNNI AMX_TILE AMX_INT8 AMX_BF16 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+2026-04-07 16:45:33.998885: E external/local_xla/xla/stream_executor/cuda/cuda_platform.cc:51] failed call to cuInit: INTERNAL: CUDA error: Failed call to cuInit: UNKNOWN ERROR (303)
+[44709, 28069]
+Model: "functional"
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+┃ Layer (type)                    ┃ Output Shape           ┃       Param # ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+│ input_layer (InputLayer)        │ (None, 28069)          │             0 │
+├─────────────────────────────────┼────────────────────────┼───────────────┤
+│ large_layer (Dense)             │ (None, 15)             │       421,050 │
+└─────────────────────────────────┴────────────────────────┴───────────────┘
+ Total params: 421,050 (1.61 MB)
+ Trainable params: 421,050 (1.61 MB)
+ Non-trainable params: 0 (0.00 B)
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+None
+Saved artifact at '/tmp/tmptb2dbehp'. The following endpoints are available:
+
+* Endpoint 'serve'
+  args_0 (POSITIONAL_ONLY): TensorSpec(shape=(None, 28069), dtype=tf.float32, name='keras_tensor')
+Output Type:
+  TensorSpec(shape=(None, 15), dtype=tf.float32, name=None)
+Captures:
+  23414002823248: TensorSpec(shape=(), dtype=tf.resource, name=None)
+  23414002823824: TensorSpec(shape=(), dtype=tf.resource, name=None)
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+W0000 00:00:1775544334.881027   59027 tf_tfl_flatbuffer_helpers.cc:365] Ignored output_format.
+W0000 00:00:1775544334.881152   59027 tf_tfl_flatbuffer_helpers.cc:368] Ignored drop_control_dependency.
+2026-04-07 16:45:34.881924: I tensorflow/cc/saved_model/reader.cc:83] Reading SavedModel from: /tmp/tmptb2dbehp
+2026-04-07 16:45:34.882203: I tensorflow/cc/saved_model/reader.cc:52] Reading meta graph with tags { serve }
+2026-04-07 16:45:34.882215: I tensorflow/cc/saved_model/reader.cc:147] Reading SavedModel debug info (if present) from: /tmp/tmptb2dbehp
+I0000 00:00:1775544334.884032   59027 mlir_graph_optimization_pass.cc:425] MLIR V1 optimization pass is not enabled
+2026-04-07 16:45:34.884469: I tensorflow/cc/saved_model/loader.cc:236] Restoring SavedModel bundle.
+2026-04-07 16:45:34.905453: I tensorflow/cc/saved_model/loader.cc:220] Running initialization op on SavedModel bundle at path: /tmp/tmptb2dbehp
+2026-04-07 16:45:34.909865: I tensorflow/cc/saved_model/loader.cc:471] SavedModel load for tags { serve }; Status: success: OK. Took 27948 microseconds.
+2026-04-07 16:45:34.922307: I tensorflow/compiler/mlir/tensorflow/utils/dump_mlir_util.cc:269] disabling MLIR crash reproducer, set env var `MLIR_CRASH_REPRODUCER_DIRECTORY` to enable.
+WARNING:absl:You are saving your model as an HDF5 file via `model.save()` or `keras.saving.save_model(model)`. This file format is considered legacy. We recommend using instead the native Keras format, e.g. `model.save('my_model.keras')` or `keras.saving.save_model(model, 'my_model.keras')`. 
+Sved forward_model.tflite
+failed to lookup keras version from the file,
+    this is likely a weight only file
+Saved TFJS model to /data/scratch/projects/punim1703/nn_tb/REVISION/results/tfjs_model
+/data/scratch/projects/punim1703/nn_tb/REVISION/scripts/comp.py:12: DtypeWarning: Columns (0: gatifloxacin, 1: rifabutin, 2: thioacetazone) have mixed types. Specify dtype option on import or set low_memory=False.
+  truth = pd.read_csv(OLD_TB / "samples.csv")
+[2026-04-07T16:45:38.158] error: *** JOB 23683580 ON spartan-bm135 CANCELLED AT 2026-04-07T16:45:38 DUE to SIGNAL Terminated ***
