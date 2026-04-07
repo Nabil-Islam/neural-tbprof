@@ -58,11 +58,9 @@ for i, row in who_df.iterrows():
 
 print(drug_dict)
 
-LOF_ONLY_GENES = {
-    'isoniazid':    ['katG'],
+ALL_NONSYN_GENES = {
     'pyrazinamide': ['pncA'],
     'ethionamide':  ['ethA'],
-    'streptomycin': ['gid'],
     'capreomycin':  ['tlyA'],
     'bedaquiline':  ['Rv0678', 'pepQ'],
     'clofazimine':  ['Rv0678', 'pepQ'],
@@ -73,6 +71,11 @@ RRDR_CODONS = range(426, 453)  # rpoB RRDR
 
 LOF_TYPES = {'stop_gained', 'frameshift_variant',
              'feature_ablation', 'start_lost'}
+
+LOF_ONLY_GENES = {
+    'isoniazid': ['katG'],
+    'streptomycin': ['gid']
+}
 
 snp_dict = {drug: {} for drug in drug_dict.keys()}
 print(snp_dict)
@@ -109,21 +112,12 @@ for vcf in tqdm(vcfs, total=len(vcfs)):
             continue
 
         ann_s = ann.split('|')
-        if ann_s[1] in LOF_TYPES:
-            print(f"LoF found: {ann_s[1]}, gene: {ann_s[3]}, converted:"
-                  + "{locus_to_name.get(ann_s[3], ann_s[3])}")
         var_type = ann_s[1]
 
         if var_type in ('synonymous_variant'):
             continue
 
         gene_name = locus_to_name.get(ann_s[3], ann_s[3])
-        if ann_s[3] in ['Rv0678', 'Rv1908c', 'Rv0667', 'Rv2043c']:
-            print(f"locus: {ann_s[3]}, converted:" +
-                  "{gene_name}, var_type: {ann_s[1]}")
-            for drug, genes in resistant_drugs.items():
-                if gene_name in genes:
-                    print(f"  MATCH: {drug} -> {genes}")
         for drug, genes in resistant_drugs.items():
 
             drug_l = drug.lower()
@@ -141,11 +135,14 @@ for vcf in tqdm(vcfs, total=len(vcfs)):
                     continue
 
             # LoF-only genes
+            elif gene_name in ALL_NONSYN_GENES.get(drug_l, []):
+                pass
+
             elif gene_name in LOF_ONLY_GENES.get(drug_l, []):
                 if var_type not in LOF_TYPES:
                     continue
 
-            # No expert rule for this drug/gene combo - skip augmentation entirely
+            # No expert rule for this drug/gene combo - just old method, where we picked up LoF variants
             else:
                 continue
 
@@ -155,7 +152,6 @@ for vcf in tqdm(vcfs, total=len(vcfs)):
             for alt in variant.ALT:
                 snp_str = f'{pos}_{ref}_{alt}'
                 snp_dict.setdefault(drug, {})[snp_str] = 1
-        break
 print(drug_dict)
 print(snp_dict)
 
