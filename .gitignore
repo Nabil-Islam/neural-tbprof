@@ -2,3 +2,5 @@ results/*.npz
 results/*.h5
 results/*.keras
 *.out
+logs/
+.snakemake/log/
