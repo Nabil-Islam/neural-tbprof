@@ -1,3 +1,4 @@
 results/*.npz
 results/*.h5
 results/*.keras
+*.out
