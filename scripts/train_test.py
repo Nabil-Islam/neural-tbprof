@@ -58,25 +58,40 @@ def masked_binary_crossentropy(y_true, y_pred):
     return tf.reduce_sum(loss) / (tf.reduce_sum(mask) + 1e-8)
 
 
+def masked_accuracy(y_true, y_pred):
+    mask = tf.cast(~tf.math.is_nan(y_true), tf.float32)
+    y_pred_labels = tf.cast(y_pred > 0.5, tf.float32)
+    y_true_clean = tf.where(tf.math.is_nan(
+        y_true), tf.zeros_like(y_true), y_true)
+    correct = tf.cast(tf.equal(y_true_clean, y_pred_labels), tf.float32)
+    return tf.reduce_sum(correct * mask) / (tf.reduce_sum(mask) + 1e-8)
+
+
 # --- Compile ---
 model.compile(
     optimizer=keras.optimizers.Adam(learning_rate=1e-3),
-    loss=masked_binary_crossentropy
+    loss=masked_binary_crossentropy,
+    metrics=[masked_accuracy]
 )
 
 # --- Train ---
+early_stop = keras.callbacks.EarlyStopping(
+    monitor='val_loss',
+    patience=3,
+    restore_best_weights=True
+)
+reduce_lr = keras.callbacks.ReduceLROnPlateau(
+    monitor='val_loss',
+    factor=0.2,
+    patience=3,
+    min_lr=1e-5)
+
 history = model.fit(
     x_train, y_train,
-    epochs=20,
-    batch_size=128,
-    validation_data=(x_test, y_test),
-    callbacks=[
-        keras.callbacks.EarlyStopping(
-            monitor='val_loss',
-            patience=3,
-            restore_best_weights=True
-        )
-    ]
+    epochs=50,
+    validation_split=0.2,
+    batch_size=264,
+    callbacks=[early_stop, reduce_lr]
 )
 
 # --- Save loss history ---
@@ -90,6 +105,9 @@ print("Saved: loss_history.csv")
 
 # --- Per-drug metrics ---
 y_pred = model.predict(x_test)
+pred_df = pd.DataFrame(y_pred, columns=drugs)
+pred_df.to_csv(str(RESULTS / 'trained_predictions.csv'), index=False)
+
 
 rows = []
 for i, drug in enumerate(drugs):
