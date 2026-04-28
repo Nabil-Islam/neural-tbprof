@@ -5,6 +5,7 @@ import h5py
 import pandas as pd
 import scipy.sparse as sp
 from pathlib import Path
+import matplotlib.pyplot as plt
 
 # --- Paths ---
 SCRIPTS = Path.cwd()
@@ -107,6 +108,7 @@ print("Saved: loss_history.csv")
 y_pred = model.predict(x_test)
 pred_df = pd.DataFrame(y_pred, columns=drugs)
 pred_df.to_csv(str(RESULTS / 'trained_predictions.csv'), index=False)
+FIGURES = Path(RESULTS / 'figuers')
 
 
 rows = []
