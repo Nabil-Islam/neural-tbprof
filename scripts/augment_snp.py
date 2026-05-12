@@ -80,7 +80,7 @@ LOF_ONLY_GENES = {
 snp_dict = {drug: {} for drug in drug_dict.keys()}
 print(snp_dict)
 
-with open('/data/scratch/projects/punim1703/nn_tb/REVISION/results/vcf_list.txt', "r") as f:
+with open('/data/scratch/projects/punim1703/nn_tb/REVISION/results/essentials/vcf_list.txt', "r") as f:
     vcfs = f.readlines()
 
 vcfs = [vcf.strip('\n') for vcf in vcfs]
@@ -155,5 +155,5 @@ for vcf in tqdm(vcfs, total=len(vcfs)):
 print(drug_dict)
 print(snp_dict)
 
-with open("/data/scratch/projects/punim1703/nn_tb/REVISION/results/snp_aug.json", "w") as f:
+with open("/data/scratch/projects/punim1703/nn_tb/REVISION/results/essentials/snp_aug.json", "w") as f:
     json.dump(snp_dict, f)

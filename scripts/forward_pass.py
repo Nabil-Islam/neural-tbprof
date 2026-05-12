@@ -7,7 +7,6 @@ import json
 import scipy.sparse as sp
 import pandas as pd
 import sys
-import tensorflowjs as tfjs
 
 workflow = Path.cwd()
 results = workflow/"results"
@@ -17,21 +16,26 @@ arg = sys.argv[1]
 
 vcfs = []
 
-with open(results/"vcf_list.txt") as f:
+with open(results/"essentials/vcf_list.txt") as f:
     for vcf in f:
         vcfs.append(vcf.strip('\n'))
 
 if arg == "er":
-    with open(results/'combined_snps.json') as f:
+    with open(results/'essentials/combined_snps.json') as f:
         snp_dict = json.load(f)
     name = "expert_rules"
 
+if arg == "filt":
+    with open(results/'essentials/filtered_combined_snps.json') as f:
+        snp_dict = json.load(f)
+    name = "filtered_expert_rules"
+
 if arg == "who":
-    with open(results/'who_snps.json', 'r') as f:
+    with open(results/'essentials/who_snps.json', 'r') as f:
         snp_dict = json.load(f)
     name = "who"
 
-with open(results/f"{name}_LOOKUP_SNP.json") as f:
+with open(results/f"matrices/{name}/{name}_LOOKUP_SNP.json") as f:
     snp_lu = json.load(f)
 
 
@@ -55,7 +59,8 @@ large_model = Model(inputs=new_snp_vec, outputs=large_output)
 print(large_model.summary())
 
 # Update weights
-weight_matrix = sp.load_npz(results/f'{name}_WEIGHTS_AUG.npz').tocoo()
+weight_matrix = sp.load_npz(
+    results/f'matrices/{name}/{name}_WEIGHTS_AUG.npz').tocoo()
 
 indices = np.vstack((weight_matrix.row, weight_matrix.col)).T
 values = weight_matrix.data
@@ -78,7 +83,7 @@ bias = np.zeros(len(drugs), dtype=np.float32)
 large_dense.set_weights([dense_kernel.numpy(), bias])
 
 # Make new layer
-matrix = sp.load_npz(results/f"{name}_AUG_matrix.npz").tocoo()
+matrix = sp.load_npz(results/f"matrices/{name}/{name}_AUG_matrix.npz").tocoo()
 
 indices = np.vstack((matrix.row, matrix.col)).T.astype(np.int64)
 values = matrix.data.astype(np.float32)
@@ -103,30 +108,6 @@ for vcf in prediction:
         vcf[i] = 'R' if pred > 0.5 else 'S'
 
 df = pd.DataFrame(prediction)
+df.to_csv(results/f"metrics/{name}_predictions.csv", index=False)
 
-if arg == "er":
-    df.to_csv(results/"er_predictions.csv", index=False)
-
-if arg == "who":
-    df.to_csv(results/"who_predictions.csv", index=False)
-
-dense_input = Input(shape=(col_num,), sparse=False)
-dense_output = large_dense(dense_input)  # reuse trained layer, weights intact
-dense_model = Model(inputs=dense_input, outputs=dense_output)
-
-# save in all formats
-dense_model.save(results / 'forward_model.h5')
-dense_model.save(str(results / 'forward_model.keras'))
-tf.saved_model.save(dense_model, str(results / 'forward_model_saved'))
-
-
-converter = tf.lite.TFLiteConverter.from_keras_model(large_model)
-tflite_model = converter.convert()
-
-with open(results / 'forward_model.tflite', 'wb') as f:
-    f.write(tflite_model)
-
-print(f"Sved forward_model.tflite")
-
-tfjs.converters.save_keras_model(large_model, results / "tfjs_model")
-print(f"Saved TFJS model to {results / 'tfjs_model'}")
+large_model.save(results/f"models/naiive_models/{name}_naiive_model.h5")

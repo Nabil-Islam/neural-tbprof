@@ -5,7 +5,7 @@ from pathlib import Path
 snps_path = Path(
     "/data/scratch/projects/punim1703/false_negative/old_tbprof/results/matrices")
 nn_path = Path("/data/scratch/projects/punim1703/nn_tb/REVISION/")
-with open(nn_path/"results/FINAL_SNP.json", "r") as f:
+with open(nn_path/"results/essentials/FINAL_SNP.json", "r") as f:
     snp_json = json.load(f)
 drugs = list(snp_json.keys())
 
@@ -18,5 +18,5 @@ for drug in drugs:
     snps = subset['snp']
     enriched_snps[drug] = list(snps)
 
-with open(nn_path/"results/enriched_snps.json", "w") as f:
+with open(nn_path/"results/essentials/enriched_snps.json", "w") as f:
     json.dump(enriched_snps, f)

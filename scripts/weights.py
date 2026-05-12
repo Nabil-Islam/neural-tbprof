@@ -9,16 +9,21 @@ results = workflow/"results"
 arg = sys.argv[1]
 
 if arg == "er":
-    with open(results/'combined_snps.json', 'r') as f:
+    with open(results/'essentials/combined_snps.json', 'r') as f:
         weight_m = json.load(f)
     name = "expert_rules"
 
+if arg == "filt":
+    with open(results/'essentials/filtered_combined_snps.json', 'r') as f:
+        weight_m = json.load(f)
+    name = "filtered_expert_rules"
+
 if arg == "who":
-    with open(results/'who_snps.json', 'r') as f:
+    with open(results/'essentials/who_snps.json', 'r') as f:
         weight_m = json.load(f)
     name = "who"
 
-with open(results/f"{name}_LOOKUP_SNP.json", 'r') as f:
+with open(results/f"matrices/{name}/{name}_LOOKUP_SNP.json", 'r') as f:
     snp_lu = json.load(f)
 
 print(name)
@@ -46,4 +51,4 @@ matrix = sp.coo_matrix(
     shape=(len(drugs), len(snp_lu.keys()))
 )
 
-sp.save_npz(results/f"{name}_WEIGHTS_AUG.npz", matrix)
+sp.save_npz(results/f"matrices/{name}/{name}_WEIGHTS_AUG.npz", matrix)

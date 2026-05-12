@@ -5,19 +5,20 @@ from tqdm import tqdm
 import scipy.sparse as sp
 import numpy as np
 import sys
+import filtered_snps
 
 workflow = Path.cwd()
 results = workflow/"results"
 data = workflow/"data"
 arg = sys.argv[1]
 
-with open("/data/scratch/projects/punim1703/nn_tb/REVISION/results/who_snps.json") as f:
+with open(results / "essentials/who_snps.json") as f:
     weight_m = json.load(f)
 name = "who"
 
 if arg == "er":
     name = "expert_rules"
-    with open('/data/scratch/projects/punim1703/nn_tb/REVISION/results/snp_aug.json') as f:
+    with open(results / 'essentials/snp_aug.json') as f:
         new_snp = json.load(f)
 
     for drug, snps in new_snp.items():
@@ -26,8 +27,16 @@ if arg == "er":
                 continue
             weight_m.setdefault(drug.capitalize(), {})[snp] = 1
 
-    with open('/data/scratch/projects/punim1703/nn_tb/REVISION/results/combined_snps.json', 'w') as f:
+    with open(results / 'essentials/combined_snps.json', 'w') as f:
         json.dump(weight_m, f)
+
+# Generate combined filtered snps depending logpval and log or
+comb_snps = Path(results / "essentials/combined_snps.json").exists()
+if arg == "filt" and comb_snps:
+    filtered_snps.main()
+    with open(results / 'essentials/filtered_combined_snps.json', 'r') as f:
+        weight_m = json.load(f)
+    name = "filtered_expert_rules"
 
 snp_set = set()
 
@@ -39,10 +48,10 @@ snp_list = list(snp_set)
 
 snp_lu = {snp: i for i, snp in enumerate(snp_list)}
 
-with open(results/f"{name}_LOOKUP_SNP.json", 'w') as f:
+with open(results/f"matrices/{name}/{name}_LOOKUP_SNP.json", 'w') as f:
     json.dump(snp_lu, f)
 
-with open(results/"vcf_list.txt") as f:
+with open(results/"essentials/vcf_list.txt") as f:
     vcfs = f.readlines()
 
 vcfs = [vcf.strip('\n') for vcf in vcfs]
@@ -50,7 +59,7 @@ vcfs = [vcf.strip('\n') for vcf in vcfs]
 rows = []
 cols = []
 
-for i, vcf_path in enumerate(tqdm(vcfs, desc="making matrix")):
+for i, vcf_path in enumerate(tqdm(vcfs, desc=f"{name} making matrix")):
     vcf = VCF(vcf_path)
     for variant in vcf:
         pos = variant.start + 1
@@ -71,4 +80,4 @@ matrix = sp.coo_matrix(
     shape=(len(vcfs), len(snp_lu.keys()))
 )
 
-sp.save_npz(results/f"{name}_AUG_matrix.npz", matrix)
+sp.save_npz(results/f"matrices/{name}/{name}_AUG_matrix.npz", matrix)
