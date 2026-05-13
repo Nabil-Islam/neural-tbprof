@@ -31,7 +31,7 @@ for sample in "${samples[@]}"; do
   #python3 "$dir/make_index.py" "$sample"
   #python3 "$dir/weights.py" "$sample"
   #python3 "$dir/forward_pass.py" "$sample"
-  python3 "$dir/train_test.py" "$sample"
+  python3 "$dir/train.py" "$sample"
 
   echo "Finished $sample at: $(date)"
 done

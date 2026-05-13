@@ -72,7 +72,8 @@ plt.rcParams.update({
 })
 
 # ── Plot config ───────────────────────────────────────────────────────────────
-MODEL_NAMES = ["TB-Profiler", "WHO",      "Expert Rules", "Filtered"]
+MODEL_NAMES = ["TB-Profiler", "WHO",
+               "WHO+Expert Rules", "WHO+Expert Rules+Filtered"]
 MARKERS = ["o",           "s",        "^",            "D"]
 COLORS = ["#4878CF",     "#D65F5F",  "#6ACC65",      "#B47CC7"]
 DOT_SIZE = 18
@@ -146,12 +147,13 @@ for metric_vals, baselines, ylabel, fname, ylim_bottom in [
     ]
     # Single style cue: dashed = untrained (no extra 3 entries)
     untrained_handle = mlines.Line2D([], [], color="#888888", linestyle="--",
-                                     linewidth=1.2, label="Feed Forward")
+                                     linewidth=1.2, label="Untrained")
     fig.legend(
         handles=dot_handles + [untrained_handle],
         loc="lower center", ncol=len(MODEL_NAMES) + 1,
         fontsize=8, frameon=False, bbox_to_anchor=(0.5, -0.08),
     )
+    fig.suptitle(f"{fname.capitalize()} comparison across models")
 
     plt.tight_layout(rect=[0, 0.08, 1, 1])
     (RESULTS / "figures").mkdir(parents=True, exist_ok=True)
