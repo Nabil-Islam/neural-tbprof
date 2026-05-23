@@ -5,7 +5,7 @@
 #SBATCH --account="punim1703"
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=5
-#SBATCH --mem=53600
+#SBATCH --mem=120000
 #SBATCH --time=3-00:00:00
 
 # Safety check
@@ -38,5 +38,5 @@ done
 
 # Run the final comparison once after all samples are done
 #echo "All samples complete. Running final comparison..."
-python3 "$dir/comp.py"
-python3 "$dir/plot.py"
+#python3 "$dir/comp.py"
+#python3 "$dir/plot.py"

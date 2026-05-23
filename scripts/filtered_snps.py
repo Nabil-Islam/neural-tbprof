@@ -12,7 +12,7 @@ def main():
         '/data/scratch/projects/punim1703/false_negative/old_tbprof/results/matrices')
 
     # Load the current SNP dictionary
-    combined_path = RESULTS / 'combined_snps.json'
+    combined_path = RESULTS / 'essentials/combined_snps.json'
     if not combined_path.exists():
         print(f"Error: {combined_path} not found.")
         return
