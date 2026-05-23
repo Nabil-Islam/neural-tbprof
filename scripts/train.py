@@ -372,6 +372,7 @@ fig.suptitle(f'Global learning curves ({
              tname} SNPs)', fontweight='bold')
 fig.tight_layout()
 fig.savefig(str(FIGURES / f'{name}_learning_curves.png'), dpi=150)
+fig.savefig(str(FIGURES / f'{name}_learning_curves.pdf'), format='pdf')
 plt.close(fig)
 print(f"Saved: {name}_learning_curves.png")
 
@@ -402,6 +403,8 @@ for drug in drugs:
         f'{drug.capitalize()} ({tname} SNPs)', fontweight='bold')
     fig.tight_layout()
     fig.savefig(str(FIGURES / f'{name}_{drug}_learning_curves.png'), dpi=150)
+    fig.savefig(
+        str(FIGURES / f'{name}_{drug}_learning_curves.pdf'), format='pdf')
     plt.close(fig)
     print(f"Saved: {name}_{drug}_learning_curves.png")
 
