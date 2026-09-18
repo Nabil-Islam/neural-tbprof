@@ -17,6 +17,7 @@ fi
 # Variables
 dir="/data/scratch/projects/punim1703/nn_tb/REVISION/scripts"
 res="/data/scratch/projects/punim1703/nn_tb/REVISION/results"
+tbml="/data/scratch/projects/punim1703/nn_tb/REVISION/tbml"
 
 # Define the array (Bash syntax)
 samples=("who" "er" "filt")
@@ -29,14 +30,15 @@ for sample in "${samples[@]}"; do
   echo "--------------------------------------------"
 
   #python3 "$dir/make_index.py" "$sample"
-  #python3 "$dir/weights.py" "$sample"
-  #python3 "$dir/forward_pass.py" "$sample"
   python3 "$dir/train.py" "$sample"
+  #python3 "$dir/new_layer/cr_w.py" "$sample"
+  #python3 "$dir/new_layer/cr_fp.py" "$sample"
+  #python3 "$dir/train_cr.py" "$sample"
 
   echo "Finished $sample at: $(date)"
 done
 
-# Run the final comparison once after all samples are done
-#echo "All samples complete. Running final comparison..."
-#python3 "$dir/comp.py"
-#python3 "$dir/plot.py"
+#Run the final comparison once after all samples are done
+echo "All samples complete. Running final comparison..."
+python3 "$dir/comp.py"
+python3 "$dir/plot.py"

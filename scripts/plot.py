@@ -4,7 +4,6 @@ import numpy as np
 from pathlib import Path
 import pandas as pd
 
-# ── Data Paths & Setup ───────────────────────────────────────────────────────
 WORK = Path.cwd()
 RESULTS = WORK / 'results'
 METRICS = RESULTS / 'metrics'
@@ -77,7 +76,6 @@ MODEL_NAMES = ["TB-Profiler", "WHO",
 MARKERS = ["o", "o", "o", "o"]
 COLORS = ["#2E5E9E", "#C05A2E", "#3A7D44", "#8B3A62"]
 
-# --- Tweaked Sizing & Spacing for Tight/Small Aesthetic ---
 DOT_SIZE = 16          # Scaled down to prevent bleeding
 STEM_COLOR = "#DCDCDC"  # Muted, light gray to prevent error bar confusion
 OFFSET_STEP = 0.10     # Reduced from 0.16 to pull columns closer together
@@ -85,14 +83,11 @@ offsets = np.array([-1.5, -0.5, 0.5, 1.5]) * OFFSET_STEP
 
 x = np.arange(len(drugs_list))
 
-# ── Core Drawing Routine ─────────────────────────────────────────────────────
-
 
 def draw_dotplot(ax, series_4, baselines_3, ylabel, target_drugs, ylim_bottom=0.0):
     """
     Renders an academic grouped lollipop scatter plot with distinct baseline anchors.
     """
-    # 1. Structural Stem Lines (Drawn behind the markers)
     for j, bl_vals in enumerate(baselines_3, start=1):
         trained_vals = series_4[j]
         for i in range(len(target_drugs)):
@@ -101,20 +96,17 @@ def draw_dotplot(ax, series_4, baselines_3, ylabel, target_drugs, ylim_bottom=0.
             ax.vlines(cx, ymin=bl_vals[i], ymax=trained_vals[i],
                       colors=STEM_COLOR, linewidth=0.7, zorder=2)
 
-    # 2. Main Model Target Points
     for j, (vals, color, marker, name) in enumerate(zip(series_4, COLORS, MARKERS, MODEL_NAMES)):
         ax.scatter(x + offsets[j], vals,
                    color=color, marker=marker, s=DOT_SIZE,
                    zorder=4, label=name,
                    linewidths=0.4, edgecolors="white")
 
-    # 3. Untrained Baseline Anchor Nodes (Clean, tiny hollow targets)
     for j, (bl_vals, color) in enumerate(zip(baselines_3, COLORS[1:]), start=1):
         ax.scatter(x + offsets[j], bl_vals,
                    color='white', marker='o', s=5,  # Reduced from 8 to match dot size
                    edgecolors=color, linewidths=0.7, zorder=3)
 
-    # Formal Textbook Frame Specifications
     display_labels = [str(d).capitalize() for d in target_drugs]
     ax.set_xticks(x)
     ax.set_xticklabels(display_labels, rotation=30, ha="right", fontsize=9.5)
@@ -132,7 +124,6 @@ def draw_dotplot(ax, series_4, baselines_3, ylabel, target_drugs, ylim_bottom=0.
     ax.set_axisbelow(True)
 
 
-# ── Process & Output Evaluation Loops ────────────────────────────────────────
 for metric_vals, baselines, ylabel, fname, ylim_bottom in [
     ([tbse, wse, ese, fse], [wse_bl, ese_bl, fse_bl],
      "Sensitivity", "sensitivity", 0.0),
@@ -145,7 +136,6 @@ for metric_vals, baselines, ylabel, fname, ylim_bottom in [
     draw_dotplot(ax, metric_vals, baselines, ylabel,
                  drugs_list, ylim_bottom=ylim_bottom)
 
-    # Reconstruct Legend Indicators
     dot_handles = [
         mlines.Line2D([], [], color=c, marker=m, linestyle="None",
                       markersize=4.5, label=n,  # Slightly scaled down for legend consistency
@@ -153,7 +143,6 @@ for metric_vals, baselines, ylabel, fname, ylim_bottom in [
         for c, m, n in zip(COLORS, MARKERS, MODEL_NAMES)
     ]
 
-    # Representative anchor item for the baseline legend item
     untrained_handle = mlines.Line2D([], [], color="white", marker='o', linestyle="None",
                                      markersize=3.5, markeredgecolor="#555555", markeredgewidth=0.7,
                                      label="Untrained Baseline Anchor")
@@ -170,11 +159,11 @@ for metric_vals, baselines, ylabel, fname, ylim_bottom in [
 
     plt.tight_layout()
 
-    # Build Directories and Export
     (RESULTS / "figures").mkdir(parents=True, exist_ok=True)
     fig.savefig(RESULTS / f"figures/{fname}.pdf", bbox_inches="tight")
     fig.savefig(RESULTS / f"figures/{fname}.svg", bbox_inches="tight")
-    fig.savefig(RESULTS / f"figures/{fname}.png", dpi=300, bbox_inches="tight")
+    fig.savefig(RESULTS / f"figures/{fname}.png",
+                dpi=300, bbox_inches="tight")
     plt.close(fig)
 
 print("Process Complete. High-resolution compact layouts compiled successfully.")

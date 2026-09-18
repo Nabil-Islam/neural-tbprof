@@ -1,0 +1,10 @@
+tensorflow
+tf_keras
+numpy
+pandas
+scikit-learn
+scipy
+matplotlib
+seaborn
+h5py
+tqdm

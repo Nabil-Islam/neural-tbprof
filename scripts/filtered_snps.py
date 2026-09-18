@@ -7,11 +7,9 @@ import os
 def main():
     CURR_DIR = Path.cwd()
     RESULTS = CURR_DIR / 'results'
-    # Use Path object for easier joining
     MATRICES = Path(
         '/data/scratch/projects/punim1703/false_negative/old_tbprof/results/matrices')
 
-    # Load the current SNP dictionary
     combined_path = RESULTS / 'essentials/combined_snps.json'
     if not combined_path.exists():
         print(f"Error: {combined_path} not found.")
@@ -26,14 +24,11 @@ def main():
 
         print(f"Checking: {csv_path}")
 
-        # 1. Check if file exists and is NOT empty (0 bytes)
         if csv_path.exists() and os.path.getsize(csv_path) > 0:
             try:
                 f_snps = pd.read_csv(csv_path)
 
-                # 2. Ensure 'log_or' and 'snp' columns exist before processing
                 if 'log_or' in f_snps.columns and 'snp' in f_snps.columns:
-                    # Filter out 'inf' strings or actual infinity values
                     f_snps = f_snps[f_snps['log_or'].astype(
                         str).str.lower() != 'inf']
 
@@ -55,8 +50,7 @@ def main():
     # Save the updated dictionary
     output_path = RESULTS / 'filtered_combined_snps.json'
     with open(output_path, 'w') as f:
-        json.dump(curr_snps, f, indent=4)  # Added indent for easier debugging
-
+        json.dump(curr_snps, f, indent=4)
     print(f"Successfully saved results to {output_path}")
 
 

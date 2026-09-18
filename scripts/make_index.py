@@ -33,7 +33,7 @@ if arg == "er":
 # Generate combined filtered snps depending logpval and log or
 comb_snps = Path(results / "essentials/combined_snps.json").exists()
 if arg == "filt" and comb_snps:
-    filtered_snps.main()
+    # filtered_snps.main()
     with open(results / 'essentials/filtered_combined_snps.json', 'r') as f:
         weight_m = json.load(f)
     name = "filtered_expert_rules"

@@ -1,5 +1,5 @@
 import tensorflow as tf
-from tensorflow.keras.layers import Input, Dense
+from tensorflow.keras.layers import Input, Dense, Lambda, Concatenate
 from tensorflow.keras.models import Model
 import numpy as np
 from pathlib import Path
@@ -40,6 +40,7 @@ with open(results/f"matrices/{name}/{name}_LOOKUP_SNP.json") as f:
 
 
 drugs = list(snp_dict.keys())
+print(drugs)
 
 row_num = len(vcfs)
 col_num = len(snp_lu.keys())
@@ -54,9 +55,40 @@ large_dense = Dense(len(drugs), activation='sigmoid', name='large_layer')
 
 large_output = large_dense(new_snp_vec)
 
-large_model = Model(inputs=new_snp_vec, outputs=large_output)
+pairs = [
+    (drugs.index("Isoniazid"), drugs.index("Ethionamide")),
+    (drugs.index("Bedaquiline"), drugs.index("Clofazimine")),
+    (drugs.index("Levofloxacin"), drugs.index("Moxifloxacin"))
+]
+paired_indices = set(i for pair in pairs for i in pair)
 
-print(large_model.summary())
+
+def slice_cols(idxs):
+    return Lambda(lambda x: tf.gather(x, idxs, axis=1))
+
+
+pair_outputs = {}  # maps index -> combined tensor (shape (batch,1))
+for k, (i, j) in enumerate(pairs):
+    pair_slice = slice_cols([i, j])(large_output)          # (batch, 2)
+    combiner = Dense(1, activation='sigmoid',
+                     name=f'pair_combiner_{k}')(pair_slice)  # (batch, 1)
+    pair_outputs[i] = combiner
+    pair_outputs[j] = combiner   # both slots get the same combined value
+
+# Step 4: reassemble the full 15-length vector, in original order
+final_slices = []
+for idx in range(len(drugs)):
+    if idx in paired_indices:
+        final_slices.append(pair_outputs[idx])
+    else:
+        final_slices.append(slice_cols([idx])(
+            large_output))  # (batch,1) untouched
+
+final_output = Concatenate(axis=1, name='final_output')(
+    final_slices)  # (batch, 15)
+
+large_model = Model(inputs=new_snp_vec, outputs=final_output)
+large_model.summary()
 
 # Update weights
 weight_matrix = sp.load_npz(
@@ -108,6 +140,6 @@ for vcf in prediction:
         vcf[i] = 'R' if pred > 0.5 else 'S'
 
 df = pd.DataFrame(prediction)
-df.to_csv(results/f"metrics/{name}_predictions.csv", index=False)
+df.to_csv(results/f"metrics/cross_{name}_predictions.csv", index=False)
 
-large_model.save(results/f"models/naiive_models/{name}_naiive_model.h5")
+large_model.save(results/f"models/naiive_models/cross_{name}_naiive_model.h5")

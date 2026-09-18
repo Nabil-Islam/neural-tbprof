@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tbml"
+version = "0.1.0"
+description = "Shared training/eval/plotting utilities for TB drug-resistance masked multi-label models"
+requires-python = ">=3.9"
+dependencies = [
+    "tensorflow",
+    "tf_keras",
+    "numpy",
+    "pandas",
+    "scikit-learn",
+    "scipy",
+    "matplotlib",
+    "seaborn",
+    "h5py",
+    "tqdm",
+]
+
+[tool.setuptools]
+packages = ["tbml"]
