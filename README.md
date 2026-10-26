@@ -6,7 +6,7 @@ Catalogue-based tools like [TB-Profiler](https://github.com/jodyphelan/TBProfile
 
 > MSc (Bioinformatics) research project, University of Melbourne, carried out at the Peter Doherty Institute for Infection and Immunity under Prof. Lachlan Coin and Dr.Michael Hall. 
 ![Per-drug sensitivity: TB-Profiler vs neural-tbprof](results/figures/sensitivity.png)
-
+Status: Results and the tbml library are complete. I’m currently refactoring the pipeline scripts to remove hardcoded cluster paths. See [Running the pipeline](## Running the pipeline).
 ---
 
 ## Why this approach
@@ -95,6 +95,8 @@ pip install -e .
 Requires Python ≥ 3.9. Dependencies (TensorFlow, tf_keras, NumPy, pandas, SciPy, scikit-learn, matplotlib) are listed in `pyproject.toml`.
 
 ## Running the pipeline
+
+Note: some scripts still contain hardcoded paths from the HPC environment where the analysis was run (/data/scratch/...). I’m replacing these with command-line arguments. Until then, edit the paths at the top of each script to point to your local results/ directory
 
 Run the scripts from the repository root, in this order. `<set>` is one of `who`, `er` or `filt`.
 
