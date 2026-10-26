@@ -5,8 +5,10 @@
 Catalogue-based tools like [TB-Profiler](https://github.com/jodyphelan/TBProfiler) predict resistance by looking up known mutations. They work well for first-line drugs, but miss a large share of resistance to newer drugs such as bedaquiline, clofazimine and delamanid. `neural-tbprof` keeps the catalogue as its starting point. Each drug is a single-layer neural network whose weights start at the catalogue's variant effects, and the network then learns from ~44,000 genomes with known drug susceptibility where the catalogue is wrong.
 
 > MSc (Bioinformatics) research project, University of Melbourne, carried out at the Peter Doherty Institute for Infection and Immunity under Prof. Lachlan Coin and Dr.Michael Hall. 
+
 ![Per-drug sensitivity: TB-Profiler vs neural-tbprof](results/figures/sensitivity.png)
-Status: Results and the tbml library are complete. I’m currently refactoring the pipeline scripts to remove hardcoded cluster paths. See [Running the pipeline](## Running the pipeline).
+
+> Status: Results and the tbml library are complete. I’m currently refactoring the pipeline scripts to remove hardcoded cluster paths. See [Running the pipeline].
 ---
 
 ## Why this approach
