@@ -1,6 +1,58 @@
-results/*.npz
-results/*.h5
-results/*.keras
+# ── OS / editor ─────────────────────────────
+.DS_Store
+**/.DS_Store
+*.swp
+*~
+.vscode/
+.idea/
+
+# ── Python ──────────────────────────────────
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# ── Archives and stray files ────────────────
+*.zip
+*.tar.gz
+scripts/tmp.py
+
+# ── HPC / workflow logs ─────────────────────
 *.out
+*.err
+slurm-*.out
 logs/
-.snakemake/log/
+.snakemake/
+
+# ── Large outputs (regenerate with the pipeline; share via a Release or Zenodo) ──
+results/models/
+results/matrices/
+results/**/*.npz
+results/**/*.h5
+results/**/*.keras
+results/**/*.pb
+results/**/variables/
+
+# Bulky intermediates
+results/essentials/*
+!results/essentials/vcf_list.txt
+results/*.json
+results/metrics/*_predictions.csv
+results/metrics/*_loss_history.csv
+results/metrics/*_per_drug_history.csv
+
+# Keep only summary figures (PNG for the README); ignore PDF/SVG duplicates
+results/figures/*.pdf
+results/figures/*.svg
+
+# ── Full input data (keep the small examples) ──
+data/*
+!data/ERR036186.masked.vcf.gz
+!data/ERR037478.masked.vcf.gz
+!data/ERR038254.masked.vcf.gz
+!data/sheet1.csv
+!data/sheet2.csv
