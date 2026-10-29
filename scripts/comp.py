@@ -15,17 +15,17 @@ tb_prof = pd.read_csv(OLD_TB / "NEW_classifications.csv")
 
 with open(NN_RESULTS / "essentials/FINAL_SNP.json") as f:
     er_weights = json.load(f)
-er_nn = pd.read_csv(NN_RESULTS / "metrics/expert_rules_predictions.csv")
+er_nn = pd.read_csv(NN_RESULTS / "metrics/er/expert_rules_predictions.csv")
 
 with open(NN_RESULTS / "essentials/who_snps.json") as f:
     who_weights = json.load(f)
-who_nn = pd.read_csv(NN_RESULTS / "metrics/who_predictions.csv")
+who_nn = pd.read_csv(NN_RESULTS / "metrics/who/who_predictions.csv")
 
 filter_nn = pd.read_csv(
-    NN_RESULTS / "metrics/filtered_expert_rules_predictions.csv")
+    NN_RESULTS / "metrics/filt/filtered_expert_rules_trained_predictions.csv")
 
 cr_filter_nn = pd.read_csv(
-    NN_RESULTS / "metrics/filtered_expert_rules_CR_predictions.csv")
+    NN_RESULTS / "metrics/cr/cross_expert_rules_predictions.csv")
 
 print(cr_filter_nn.shape)
 

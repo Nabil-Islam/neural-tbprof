@@ -8,9 +8,10 @@ WORK = Path.cwd()
 RESULTS = WORK / 'results'
 METRICS = RESULTS / 'metrics'
 
-who = pd.read_csv(METRICS / "who_by_drug_metrics.csv")
-er = pd.read_csv(METRICS / "expert_rules_by_drug_metrics.csv")
-filt = pd.read_csv(METRICS / "filtered_expert_rules_by_drug_metrics.csv")
+who = pd.read_csv(METRICS / "who/who_by_drug_metrics.csv")
+er = pd.read_csv(METRICS / "er/expert_rules_by_drug_metrics.csv")
+filt = pd.read_csv(
+    METRICS / "filt/filtered_expert_rules_by_drug_metrics.csv")
 tb = pd.read_csv(METRICS / "naiive_perf_metrics.csv",
                  skiprows=1).rename(columns=str.lower)
 
@@ -160,8 +161,6 @@ for metric_vals, baselines, ylabel, fname, ylim_bottom in [
     plt.tight_layout()
 
     (RESULTS / "figures").mkdir(parents=True, exist_ok=True)
-    fig.savefig(RESULTS / f"figures/{fname}.pdf", bbox_inches="tight")
-    fig.savefig(RESULTS / f"figures/{fname}.svg", bbox_inches="tight")
     fig.savefig(RESULTS / f"figures/{fname}.png",
                 dpi=300, bbox_inches="tight")
     plt.close(fig)

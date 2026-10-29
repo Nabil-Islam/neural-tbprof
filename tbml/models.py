@@ -4,30 +4,67 @@ Dense layer from a pretrained kernel, and regularize training to stay
 close to that starting point.
 """
 
+import numpy as np
 import tensorflow as tf
 import tf_keras as keras
 
 
+@keras.utils.register_keras_serializable(package="tbml")
+class AnchorRegularizer(keras.regularizers.Regularizer):
+    """
+    L2-to-anchor regularizer: penalizes weights for drifting away from
+    an initial kernel `w_init`, rather than away from zero (as a normal
+    L2 regularizer would).
+
+    Implemented as a proper Regularizer subclass rather than a plain
+    closure. Keras warns about function regularizers
+    ("should only be used for objects of type Regularizer") and a saved
+    model carrying one may fail to reload.
+
+    NOTE: get_config() serializes the full anchor kernel, so a model
+    saved while this is attached carries an extra copy of those weights.
+    For a 26k x 6 kernel that is meaningful but not huge. If you only
+    need the saved model for inference, call strip_anchor_regularizers()
+    first -- regularizers have no effect on the forward pass.
+    """
+
+    def __init__(self, w_init, strength=1e-5):
+        self.w_init = np.asarray(w_init, dtype=np.float32)
+        self.strength = float(strength)
+        self._w_init_tf = tf.constant(self.w_init, dtype=tf.float32)
+
+    def __call__(self, w):
+        return self.strength * tf.reduce_sum(tf.square(w - self._w_init_tf))
+
+    def get_config(self):
+        return {"w_init": self.w_init.tolist(), "strength": self.strength}
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(**config)
+
+
 def make_anchor_regularizer(w_init, strength=1e-5):
     """
-    Factory for an L2-to-anchor regularizer: penalizes weights for
-    drifting away from an initial kernel `w_init`, rather than away
-    from zero (as a normal L2 regularizer would).
-
-    Parameters
-    ----------
-    w_init : array-like or tf.Tensor
-        The reference kernel to anchor to (e.g. weights loaded from a
-        pretrained model).
-    strength : float
-        Regularization strength.
+    Build an AnchorRegularizer. Kept as a function for backwards
+    compatibility with existing call sites.
     """
-    w_init_tf = tf.constant(w_init, dtype=tf.float32)
+    return AnchorRegularizer(w_init, strength=strength)
 
-    def anchor_reg(w):
-        return strength * tf.reduce_sum(tf.square(w - w_init_tf))
 
-    return anchor_reg
+def strip_anchor_regularizers(model):
+    """
+    Remove kernel regularizers from every layer in place, so the model
+    can be saved without embedding the anchor kernels. Regularizers only
+    affect the training loss, never predictions, so this is safe for any
+    model you're saving for inference.
+
+    Call immediately before model.save().
+    """
+    for layer in model.layers:
+        if getattr(layer, 'kernel_regularizer', None) is not None:
+            layer.kernel_regularizer = None
+    return model
 
 
 def build_anchored_dense_model(input_dim, n_outputs, kernel_init, bias_init,

@@ -41,6 +41,10 @@ __all__ = [
     "build_rule_weight_matrix",
     "build_cr_plus_signal_matrix",
     "sparse_to_kernel",
+    "AnchorRegularizer",
+    "strip_anchor_regularizers",
+    "scores_to_calls",
+    "save_prediction_tables",
 ]
 
 _LAZY_MAP = {
@@ -71,6 +75,10 @@ _LAZY_MAP = {
     "build_rule_weight_matrix": "tbml.weight_matrices",
     "build_cr_plus_signal_matrix": "tbml.weight_matrices",
     "sparse_to_kernel": "tbml.weight_matrices",
+    "AnchorRegularizer": "tbml.models",
+    "strip_anchor_regularizers": "tbml.models",
+    "scores_to_calls": "tbml.predictions",
+    "save_prediction_tables": "tbml.predictions",
 }
 
 

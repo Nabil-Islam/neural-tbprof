@@ -41,7 +41,7 @@ def build_rule_weight_matrix(drug_order, snp_lookup, rules):
 
 
 def build_cr_plus_signal_matrix(cr_drug_order, snp_lookup, rules,
-                                signal_weight=3):
+                                 signal_weight=1):
     """
     Sparse (n_cr, n_snps + n_cr) matrix for the cr_pred layer, whose
     input is Concatenate([snp_vec, cr_reorder]).

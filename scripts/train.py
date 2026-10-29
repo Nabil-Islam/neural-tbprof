@@ -69,11 +69,12 @@ print(f"x_test:  {x_test.shape},  y_test:  {y_test.shape}")
 # --- Load pretrained weights ---
 with h5py.File(str(RESULTS / f'models/naiive_models/{name}_naiive_model.h5'), 'r') as f:
     kernel_init = f['model_weights/large_layer/large_layer/kernel'][:]
-    bias = f['model_weights/large_layer/large_layer/bias'][:]
+    # bias = f['model_weights/large_layer/large_layer/bias'][:]
 
 # -- experiment: scale up kernel, reset bias --
 kernel = kernel_init * 10.0
-bias = np.full((15,), -5.0).astype(np.float32)
+p = np.nanmean(y_train, axis=0)
+bias = np.log(p / (1-p))
 
 # --- Build anchored model ---
 model = build_anchored_dense_model(
@@ -149,7 +150,8 @@ loss_df = pd.DataFrame({
 })
 loss_df['test_loss'] = test_loss
 loss_df['test_auc'] = test_auc
-loss_df.to_csv(str(RESULTS / f'metrics/{name}_loss_history.csv'), index=False)
+loss_df.to_csv(
+    str(RESULTS / f'metrics/{arg}/{name}_loss_history.csv'), index=False)
 print(f"Saved: {name}_loss_history.csv")
 
 # --- Global learning curves (loss, AUC, F1) ---
@@ -192,7 +194,7 @@ for drug in drugs:
         per_drug_rows.append({'drug': drug.capitalize(), 'epoch': ep, 'val_loss': l,
                               'val_auc': a, 'val_f1': f})
 pd.DataFrame(per_drug_rows).to_csv(
-    str(RESULTS / f'metrics/{name}_per_drug_history.csv'), index=False)
+    str(RESULTS / f'metrics/{arg}/{name}_per_drug_history.csv'), index=False)
 print(f"Saved: {name}_per_drug_history.csv")
 
 # --- Per-drug metrics + confusion matrices ---
@@ -200,7 +202,7 @@ y_pred = model.predict(x_test)
 
 pred_df = pd.DataFrame(y_pred, columns=drugs)
 pred_df.to_csv(
-    str(RESULTS / f'metrics/{name}_trained_predictions.csv'), index=False)
+    str(RESULTS / f'metrics/{arg}/{name}_trained_predictions.csv'), index=False)
 
 rows = []
 stats_by_drug = {}
@@ -335,7 +337,7 @@ if name == 'filtered_expert_rules':
 
     metrics_df_2 = pd.DataFrame(r2)
     metrics_df_2.to_csv(
-        str(RESULTS / f'metrics/{name}_back_selected_by_drug_metrics.csv'), index=False)
+        str(RESULTS / f'metrics/{arg}/{name}_back_selected_by_drug_metrics.csv'), index=False)
     print(f"Saved: {name}_back_selected_by_drug_metrics.csv")
     print(metrics_df_2.to_string(index=False))
 
@@ -343,7 +345,7 @@ if name == 'filtered_expert_rules':
     model.get_layer('large_layer').set_weights([final_kernel, final_bias])
 
 metrics_df.to_csv(
-    str(RESULTS / f'metrics/{name}_by_drug_metrics.csv'), index=False)
+    str(RESULTS / f'metrics/{arg}/{name}_by_drug_metrics.csv'), index=False)
 print(f"Saved: {name}_by_drug_metrics.csv")
 print(metrics_df.to_string(index=False))
 

@@ -1,0 +1,14 @@
+VCF -> snp_tensor -> AMK -> [0,1] -> {R,S}
+
+MFX, LFX
+VCF -> snp_tensor -> 1_MFX -> Pred -> snp_tensor + Pred -> 2_LFX  -> [0,1] -> {R,S}
+
+VCF -> snp_tensor -> 1_LFX -> Pred -> snp_tensor + Pred -> 2_MFX  -> [0,1] -> {R,S}
+
+### Next Steps
+- (Nabil Islam) Make the final-layer biases learnable to minimise cross-entropy loss, replacing the hard-coded bias
+- (Nabil Islam) Feed pre-sigmoid scores from layer 1 into the cross-resistance layer
+- (Nabil Islam) Try a weighted cross-entropy that downweights false positives across the whole model
+- (Nabil Islam) Review Maha Farhad's TB neural network work
+- (Nabil Islam) Prepare AMR symposium slides (13 November) and share them for feedback
+- (Nabil Islam) Post progress updates in Slack

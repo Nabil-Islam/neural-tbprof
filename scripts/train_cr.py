@@ -8,6 +8,16 @@ then reorder predictions back to alphabetical for reporting -- so every
 CSV and figure downstream stays in the familiar drug order.
 """
 
+from tbml.ordering import (cross_resistance_output_order, reorder_columns,
+                           assert_output_order)
+from tbml.weights import load_layer_weights
+from tbml.models import build_cross_resistance_model
+from tbml.thresholds import pick_threshold
+from tbml.callbacks import PerDrugHistory
+from tbml.confusion import confusion_stats
+from tbml.metrics import MaskedF1, MaskedAUC
+from tbml.losses import make_masked_weighted_bce, compute_pos_weight
+from tbml.plotting import set_plot_style, plot_learning_curves, plot_confusion_grid
 import sys
 import json
 from pathlib import Path
@@ -18,16 +28,9 @@ import scipy.sparse as sp
 import tensorflow as tf
 import tf_keras as keras
 
-from tbml.plotting import set_plot_style, plot_learning_curves, plot_confusion_grid
-from tbml.losses import make_masked_weighted_bce, compute_pos_weight
-from tbml.metrics import MaskedF1, MaskedAUC
-from tbml.confusion import confusion_stats
-from tbml.callbacks import PerDrugHistory
-from tbml.thresholds import pick_threshold
-from tbml.models import build_cross_resistance_model
-from tbml.weights import load_layer_weights
-from tbml.ordering import (cross_resistance_output_order, reorder_columns,
-                           assert_output_order)
+tf.config.threading.set_intra_op_parallelism_threads(8)
+tf.config.threading.set_inter_op_parallelism_threads(2)
+
 
 set_plot_style()
 
@@ -94,12 +97,20 @@ anchor = load_layer_weights(
     ['cr_layer', 'cr_pred', 'r_layer'],
 )
 
+# Adjust anchor weights of all the input layers so its weights 10x and has -5 bias
+# In this case the mutation just becomes another resistance conferring variant
+
+# Liability scale? More dynamic range in pre-sigmoid transform, should contain
+# more information.
+anchor_scaled = {l_name: (k * 10.0, np.full_like(b, -5))
+                 for l_name, (k, b) in anchor.items()}
+
 model = build_cross_resistance_model(
     n_snps=X.shape[1],
     n_non_cr=len(non_cr_drugs),
     cr_pairs=cr_pairs,
     sparse_input=False,
-    anchor_weights=anchor,
+    anchor_weights=anchor_scaled,
     anchor_strength=1e-5,
 )
 assert_output_order(model, model_drugs)
@@ -148,6 +159,7 @@ tbsen_raw = [float(str(s).split('/')[0].strip('( '))
 # keyed by name, order-independent
 tb_sens = dict(zip(label_drugs, tbsen_raw))
 
+# LEARN BIASES
 best_thresholds = {}
 for di, drug in enumerate(model_drugs):
     mask = ~np.isnan(y_val[:, di])
