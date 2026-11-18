@@ -48,7 +48,8 @@ def main():
             print(f"  ! Skipping: {csv_path} is empty or does not exist.")
 
     # Save the updated dictionary
-    output_path = RESULTS / 'filtered_combined_snps.json'
+    # make_index.py filt reads it from essentials/
+    output_path = RESULTS / 'essentials/filtered_combined_snps.json'
     with open(output_path, 'w') as f:
         json.dump(curr_snps, f, indent=4)
     print(f"Successfully saved results to {output_path}")
