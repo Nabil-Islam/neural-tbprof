@@ -18,11 +18,14 @@ from tbml.callbacks import PerDrugHistory
 from tbml.thresholds import pick_threshold
 from tbml.predictions import save_prediction_tables
 from tbml.models import build_anchored_dense_model, strip_anchor_regularizers
+from tbml.splits import load_split
 
 set_plot_style()
 
-# --- Run config from CLI arg ---
+# --- Run config from CLI args ---
+# usage: python scripts/train_new.py <who|er|filt> [val_fold]
 arg = sys.argv[1]
+VAL_FOLD = int(sys.argv[2]) if len(sys.argv) > 2 else 0   # CV fold used for early stopping / thresholds
 NAME_MAP = {
     'who': ('who', 'WHO'),
     'er': ('expert_rules', 'Expert rules'),
@@ -56,21 +59,28 @@ X = matrix.toarray().astype(np.float32)
 
 label_matrix = pd.read_csv(RESULTS / 'essentials/labelled_vcfs.csv')
 # keep sample ids before dropping
-runs = label_matrix['run'].to_numpy()
+runs = label_matrix['run'].astype(str).to_numpy()
 label_matrix = label_matrix.drop(columns=['run'])
+if list(label_matrix.columns) != drugs:
+    raise ValueError(f"label columns {list(label_matrix.columns)} != drugs list")
 y = label_matrix.to_numpy().astype(np.float32)
 
-# --- 80/20 split ---
-rng = np.random.default_rng(42)
-idx = rng.permutation(len(X))
-split = int(0.8 * len(X))
+# matrix rows and label rows both follow vcf_list.txt order (make_index.py,
+# label_data.py); check that before trusting `runs` as the row IDs of X
+if X.shape[0] != len(runs):
+    raise ValueError(f"matrix has {X.shape[0]} rows but {len(runs)} labelled runs")
 
-x_train, x_test = X[idx[:split]], X[idx[split:]]
-y_train, y_test = y[idx[:split]], y[idx[split:]]
-runs_test = runs[idx[split:]]                  # same shuffle as x_test/y_test
+# --- Fixed accession-level split from make_splits.py ---
+# test = held out until the end; train pool = CV folds; one fold is used
+# as validation (early stopping, thresholds, SNP ablation selection)
+masks = load_split(RESULTS / 'essentials/splits.csv', runs, val_fold=VAL_FOLD)
 
-print(f"x_train: {x_train.shape}, y_train: {y_train.shape}")
-print(f"x_test:  {x_test.shape},  y_test:  {y_test.shape}")
+x_tr, y_tr = X[masks['train']], y[masks['train']]
+x_val, y_val = X[masks['val']], y[masks['val']]
+x_test, y_test = X[masks['test']], y[masks['test']]
+runs_test = runs[masks['test']]
+
+print(f"train: {x_tr.shape}  val (fold {VAL_FOLD}): {x_val.shape}  test: {x_test.shape}")
 
 # --- Load pretrained weights ---
 with h5py.File(str(RESULTS / f'models/naiive_models/{name}_naiive_model.h5'), 'r') as f:
@@ -79,7 +89,7 @@ with h5py.File(str(RESULTS / f'models/naiive_models/{name}_naiive_model.h5'), 'r
 
 # -- experiment: scale up kernel, reset bias --
 kernel = kernel_init * 10.0
-p = np.nanmean(y_train, axis=0)
+p = np.nanmean(y_tr, axis=0)                   # training rows only
 bias = np.log(p / (1-p))
 
 # --- Build anchored model ---
@@ -90,7 +100,7 @@ model = build_anchored_dense_model(
 )
 
 # --- Compile with masked, class-weighted loss ---
-pos_weight_tf = compute_pos_weight(y_train)
+pos_weight_tf = compute_pos_weight(y_tr)
 masked_weighted_bce = make_masked_weighted_bce(pos_weight_tf)
 
 model.compile(
@@ -98,11 +108,6 @@ model.compile(
     loss=masked_weighted_bce,
     metrics=[MaskedF1(), MaskedAUC()]
 )
-
-# --- Train/val split (manual, for per-drug callback) ---
-val_split = int(0.8 * len(x_train))
-x_tr, x_val = x_train[:val_split], x_train[val_split:]
-y_tr, y_val = y_train[:val_split], y_train[val_split:]
 
 per_drug_cb = PerDrugHistory(x_val, y_val, drugs)
 
@@ -270,6 +275,17 @@ if name == 'filtered_expert_rules':
     good_snps = {d: {} for d in drugs}
     SENS_THR = 0.005
 
+    # SNPs are *selected* on the validation fold, never on test: choosing
+    # which weights to drop by test sensitivity and then reporting test
+    # sensitivity would leak. Test is only used to evaluate the result below.
+    y_pred_val_base = model.predict(x_val, verbose=0)
+    val_base_sens = {}
+    for d in drugs:
+        di = drugs.index(d)
+        m = ~np.isnan(y_val[:, di])
+        val_base_sens[d] = confusion_stats(
+            y_val[m, di], y_pred_val_base[m, di], best_thresholds[d])['sensitivity']
+
     for d in tqdm(drugs, total=len(drugs), desc='sens checking'):
         fpath = FILTERED / f'{d}/filtered_{d}_snps.csv'
         if not fpath.exists():
@@ -296,16 +312,14 @@ if name == 'filtered_expert_rules':
             W_ablated = final_kernel.copy()
             W_ablated[snp_lu[snp], di] = 0.0
             model.get_layer('large_layer').set_weights([W_ablated, final_bias])
-            y_pred_test_ablated = model.predict(x_test)
+            y_pred_val_ablated = model.predict(x_val, verbose=0)
 
-            mask = ~np.isnan(y_test[:, di])
-            yt = y_test[mask, di]
-            yp = y_pred_test_ablated[mask, di]
+            mask = ~np.isnan(y_val[:, di])
+            yt = y_val[mask, di]
+            yp = y_pred_val_ablated[mask, di]
 
             stats = confusion_stats(yt, yp, best_thresholds[d])
-            baseline_sens = metrics_df.loc[metrics_df['drug']
-                                           == d, 'sensitivity'].item()
-            diff = stats['sensitivity'] - baseline_sens
+            diff = stats['sensitivity'] - val_base_sens[d]
 
             if abs(diff) >= SENS_THR and snp not in flagged:
                 good_snps[d][snp] = float(diff)
