@@ -1,158 +1,149 @@
-import sys
+"""
+Train the anchored single-layer model on one variant set and evaluate it
+once on the held-out test set.
+
+    python scripts/train_new.py <who|er|filt> --tuned --ref-runs <TN/FP json>
+    python scripts/train_new.py er --alpha 0 --neg-weight 2 --fp-gamma 1
+
+Data split: results/essentials/splits.csv (make_splits.py). The model is
+trained on the CV folds except --val-fold, which is used for early stopping,
+for choosing thresholds, and (filt only) for selecting SNPs in the ablation.
+The test set is only scored.
+
+Loss weights: --tuned reads results/metrics/tuning/<tuned-set>/best_settings.json
+written by tune_loss.py --summarise; otherwise --alpha/--neg-weight/--fp-gamma
+(defaults = the original loss).
+
+Thresholds: per drug, the threshold on the validation fold that gives
+TB-Profiler's specificity, so test sensitivity can be compared with
+TB-Profiler's like-for-like.
+"""
+
+import argparse
 import json
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import scipy.sparse as sp
-import h5py
 import tensorflow as tf
 import tf_keras as keras
 from tqdm import tqdm
 
 from tbml.plotting import set_plot_style, plot_learning_curves, plot_confusion_grid
-from tbml.losses import make_masked_weighted_bce, compute_pos_weight
 from tbml.metrics import MaskedF1, MaskedAUC
 from tbml.confusion import confusion_stats
 from tbml.callbacks import PerDrugHistory
-from tbml.thresholds import pick_threshold
+from tbml.thresholds import threshold_at_spec
 from tbml.predictions import save_prediction_tables
-from tbml.models import build_anchored_dense_model, strip_anchor_regularizers
+from tbml.models import strip_anchor_regularizers
 from tbml.splits import load_split
+from tbml.reference import reference_specificity
+from tbml.experiment import (DRUGS, BATCH_SIZE, MAX_EPOCHS, load_variant_set,
+                             build_and_compile, training_callbacks)
+
+OLD_TBPROF = '/data/scratch/projects/punim1703/false_negative/old_tbprof/results'
+
+ap = argparse.ArgumentParser(description=__doc__,
+                             formatter_class=argparse.RawDescriptionHelpFormatter)
+ap.add_argument('variant_set', choices=['who', 'er', 'filt'])
+ap.add_argument('--val-fold', type=int, default=0,
+                help='CV fold used as validation (keep equal to enrich_snps.py --exclude-fold)')
+ap.add_argument('--tuned', action='store_true',
+                help='use the loss weights chosen by tune_loss.py')
+ap.add_argument('--tuned-set', default='er',
+                help='variant set the tuning was run on (default er)')
+ap.add_argument('--alpha', type=float, default=0.5)
+ap.add_argument('--neg-weight', type=float, default=1.0)
+ap.add_argument('--fp-gamma', type=float, default=0.0)
+ap.add_argument('--ref-runs', default=None,
+                help='TB-Profiler TN/FP runs JSON (NEW_updated_runs.json): target '
+                     'specificity computed on non-test isolates')
+ap.add_argument('--results', default='results')
+ap.add_argument('--filtered-dir', default=f'{OLD_TBPROF}/matrices',
+                help='where filtered_<drug>_snps.csv live (filt ablation)')
+ap.add_argument('--flagged', default=f'{OLD_TBPROF}/flagged_snps.csv')
+ap.add_argument('--seed', type=int, default=0)
+args = ap.parse_args()
 
 set_plot_style()
-
-# --- Run config from CLI args ---
-# usage: python scripts/train_new.py <who|er|filt> [val_fold]
-arg = sys.argv[1]
-VAL_FOLD = int(sys.argv[2]) if len(sys.argv) > 2 else 0   # CV fold used for early stopping / thresholds
-NAME_MAP = {
-    'who': ('who', 'WHO'),
-    'er': ('expert_rules', 'Expert rules'),
-    'filt': ('filtered_expert_rules', 'Filtered expert rules'),
-}
-if arg not in NAME_MAP:
-    raise ValueError(f"Unknown arg '{arg}', expected one of {list(NAME_MAP)}")
-name, tname = NAME_MAP[arg]
+arg = args.variant_set
+drugs = DRUGS
 
 # --- Paths ---
-SCRIPTS = Path.cwd()
-RESULTS = SCRIPTS / 'results'
+RESULTS = Path(args.results)
 FIGURES = RESULTS / 'figures'
 FIGURES.mkdir(parents=True, exist_ok=True)
 METRICS = RESULTS / 'metrics'
 METRICS.mkdir(parents=True, exist_ok=True)
 OUT = METRICS / arg        # per-run outputs; naiive_perf_metrics.csv stays in METRICS
 OUT.mkdir(parents=True, exist_ok=True)
-FILTERED = Path(
-    '/data/scratch/projects/punim1703/false_negative/old_tbprof/results/matrices')
-FLAGGED = Path(
-    '/data/scratch/projects/punim1703/false_negative/old_tbprof/results')
+FILTERED = Path(args.filtered_dir)
+FLAGGED_CSV = Path(args.flagged)
 
-drugs = ['amikacin', 'bedaquiline', 'capreomycin', 'clofazimine', 'delamanid',
-         'ethambutol', 'ethionamide', 'isoniazid', 'kanamycin', 'levofloxacin',
-         'linezolid', 'moxifloxacin', 'pyrazinamide', 'rifampicin', 'streptomycin']
+# --- Loss weights ---
+if args.tuned:
+    best_path = METRICS / 'tuning' / args.tuned_set / 'best_settings.json'
+    with open(best_path) as f:
+        best = json.load(f)
+    loss_cfg = {k: best[k] for k in ('alpha', 'neg_weight', 'fp_gamma')}
+    print(f"loss weights from {best_path}: {loss_cfg}")
+else:
+    loss_cfg = dict(alpha=args.alpha, neg_weight=args.neg_weight, fp_gamma=args.fp_gamma)
+    print(f"loss weights from command line: {loss_cfg}")
 
-# --- Load feature + label matrices ---
-matrix = sp.load_npz(RESULTS / f'matrices/{name}/{name}_AUG_matrix.npz')
-X = matrix.toarray().astype(np.float32)
-
-label_matrix = pd.read_csv(RESULTS / 'essentials/labelled_vcfs.csv')
-# keep sample ids before dropping
-runs = label_matrix['run'].astype(str).to_numpy()
-label_matrix = label_matrix.drop(columns=['run'])
-if list(label_matrix.columns) != drugs:
-    raise ValueError(f"label columns {list(label_matrix.columns)} != drugs list")
-y = label_matrix.to_numpy().astype(np.float32)
-
-# matrix rows and label rows both follow vcf_list.txt order (make_index.py,
-# label_data.py); check that before trusting `runs` as the row IDs of X
-if X.shape[0] != len(runs):
-    raise ValueError(f"matrix has {X.shape[0]} rows but {len(runs)} labelled runs")
+# --- Load data ---
+data = load_variant_set(RESULTS, arg)
+X, y, runs, kernel = data['X'], data['y'], data['runs'], data['kernel']
+name, tname = data['name'], data['tname']
 
 # --- Fixed accession-level split from make_splits.py ---
-# test = held out until the end; train pool = CV folds; one fold is used
-# as validation (early stopping, thresholds, SNP ablation selection)
-masks = load_split(RESULTS / 'essentials/splits.csv', runs, val_fold=VAL_FOLD)
-
+masks = load_split(RESULTS / 'essentials/splits.csv', runs, val_fold=args.val_fold)
 x_tr, y_tr = X[masks['train']], y[masks['train']]
 x_val, y_val = X[masks['val']], y[masks['val']]
 x_test, y_test = X[masks['test']], y[masks['test']]
 runs_test = runs[masks['test']]
+print(f"train: {x_tr.shape}  val (fold {args.val_fold}): {x_val.shape}  test: {x_test.shape}")
 
-print(f"train: {x_tr.shape}  val (fold {VAL_FOLD}): {x_val.shape}  test: {x_test.shape}")
+# --- TB-Profiler specificity to match (never computed on test isolates
+#     when --ref-runs is given) ---
+target_spec, ref_src = reference_specificity(
+    drugs, runs[masks['train_pool']], runs_json=args.ref_runs,
+    csv_path=None if args.ref_runs else METRICS / 'naiive_perf_metrics.csv')
+print(f"target specificity from {ref_src}")
 
-# --- Load pretrained weights ---
-with h5py.File(str(RESULTS / f'models/naiive_models/{name}_naiive_model.h5'), 'r') as f:
-    kernel_init = f['model_weights/large_layer/large_layer/kernel'][:]
-    # bias = f['model_weights/large_layer/large_layer/bias'][:]
-
-# -- experiment: scale up kernel, reset bias --
-kernel = kernel_init * 10.0
-p = np.nanmean(y_tr, axis=0)                   # training rows only
-bias = np.log(p / (1-p))
-
-# --- Build anchored model ---
-model = build_anchored_dense_model(
-    input_dim=X.shape[1], n_outputs=15,
-    kernel_init=kernel, bias_init=bias,
-    layer_name='large_layer', activation='sigmoid', anchor_strength=1e-5,
-)
-
-# --- Compile with masked, class-weighted loss ---
-pos_weight_tf = compute_pos_weight(y_tr)
-masked_weighted_bce = make_masked_weighted_bce(pos_weight_tf)
-
-model.compile(
-    optimizer=keras.optimizers.Adam(learning_rate=1e-3),
-    loss=masked_weighted_bce,
-    metrics=[MaskedF1(), MaskedAUC()]
-)
+# --- Build, compile, train ---
+keras.utils.set_random_seed(args.seed)
+model = build_and_compile(kernel, y_tr, **loss_cfg,
+                          extra_metrics=[MaskedF1(), MaskedAUC()])
 
 per_drug_cb = PerDrugHistory(x_val, y_val, drugs)
-
-early_stop = keras.callbacks.EarlyStopping(
-    monitor='val_loss', patience=8, restore_best_weights=True)
-reduce_lr = keras.callbacks.ReduceLROnPlateau(
-    monitor='val_loss', factor=0.2, patience=3, min_lr=1e-6)
-
-# --- Train ---
 history = model.fit(
     x_tr, y_tr,
-    epochs=50,
+    epochs=MAX_EPOCHS,
     validation_data=(x_val, y_val),
-    batch_size=64,
-    callbacks=[early_stop, reduce_lr, per_drug_cb]
+    batch_size=BATCH_SIZE,
+    callbacks=[*training_callbacks(), per_drug_cb],
 )
 
 # --- Evaluate on test set ---
-test_loss, test_f1, test_auc = model.evaluate(x_test, y_test, verbose=0)
-print(f"Test loss: {test_loss:.4f}, Test F1: {
-      test_f1:.4f}, Test AUC: {test_auc:.4f}")
+test_eval = model.evaluate(x_test, y_test, verbose=0, return_dict=True)
+test_loss, test_f1, test_auc = test_eval['loss'], test_eval['masked_f1'], test_eval['masked_auc']
+print(f"Test loss: {test_loss:.4f}, Test F1: {test_f1:.4f}, Test AUC: {test_auc:.4f}")
 
-y_pred_val = model.predict(x_val)
-
-# --- Reference sensitivities from tb-profiler as a floor ---
-tb = pd.read_csv(METRICS / "naiive_perf_metrics.csv",
-                 skiprows=1).rename(columns=str.lower)
-tbsen_raw = [float(str(s).split('/')[0].strip('( '))
-             for s in tb['sensitivity'].tolist()]
-# match by drug name, not row position: comp.py writes rows in FINAL_SNP.json key order
-tb_sens = dict(zip(tb['drug'].str.lower(), tbsen_raw))
-missing = [d for d in drugs if d not in tb_sens]
-if missing:
-    raise ValueError(
-        f"no tb-profiler sensitivity for {missing} in naiive_perf_metrics.csv")
-
-# --- Pick per-drug thresholds ---
-best_thresholds = {}
+# --- Thresholds: TB-Profiler's specificity, set on the validation fold ---
+y_pred_val = model.predict(x_val, verbose=0)
+best_thresholds, val_spec = {}, {}
 for di, drug in enumerate(drugs):
     mask = ~np.isnan(y_val[:, di])
-    thr, matched = pick_threshold(
-        y_val[mask, di], y_pred_val[mask, di],
-        target_sens=tb_sens[drug], target_spec=0.98,
-    )
+    thr = threshold_at_spec(y_val[mask, di], y_pred_val[mask, di], target_spec[drug])
     best_thresholds[drug] = thr
+    val_spec[drug] = confusion_stats(y_val[mask, di], y_pred_val[mask, di], thr)['specificity']
+
+with open(OUT / f'{name}_run_config.json', 'w') as f:
+    json.dump({'loss': loss_cfg, 'val_fold': args.val_fold, 'seed': args.seed,
+               'target_spec_source': str(ref_src), 'target_spec': target_spec,
+               'thresholds': best_thresholds,
+               'epochs_run': len(history.history['loss'])}, f, indent=2)
 
 # --- Save global loss history ---
 loss_df = pd.DataFrame({
@@ -213,7 +204,7 @@ pd.DataFrame(per_drug_rows).to_csv(
 print(f"Saved: {name}_per_drug_history.csv")
 
 # --- Per-drug metrics + confusion matrices ---
-y_pred = model.predict(x_test)
+y_pred = model.predict(x_test, verbose=0)
 
 save_prediction_tables(
     y_pred, drugs, best_thresholds,
@@ -249,7 +240,9 @@ for i, drug in enumerate(drugs):
                  'sensitivity': round(stats['sensitivity'], 3),
                  'specificity': round(stats['specificity'], 3),
                  'f1': round(stats['f1'], 3),
-                 'threshold': round(thresh, 2), 'n': n})
+                 'threshold': round(thresh, 4),
+                 'target_spec': round(target_spec[drug], 3),
+                 'val_spec': round(float(val_spec[drug]), 3), 'n': n})
 
 metrics_df = pd.DataFrame(rows)
 
@@ -267,8 +260,8 @@ if name == 'filtered_expert_rules':
     with open(RESULTS / 'matrices/filtered_expert_rules/filtered_expert_rules_LOOKUP_SNP.json', 'r') as f:
         snp_lu = json.load(f)
 
-    flagged = pd.read_csv(FLAGGED / 'flagged_snps.csv')['snp'].tolist()
-    print(flagged)
+    flagged = set(pd.read_csv(FLAGGED_CSV)['snp'])
+    print(f"{len(flagged)} flagged SNPs excluded from ablation")
 
     final_kernel, final_bias = model.get_layer('large_layer').get_weights()
 
@@ -306,7 +299,7 @@ if name == 'filtered_expert_rules':
         di = drugs.index(d)
 
         for snp in fsnps:
-            if not snp_lu.get(snp):
+            if snp not in snp_lu:          # (index 0 is a valid SNP)
                 continue
 
             W_ablated = final_kernel.copy()
@@ -337,7 +330,7 @@ if name == 'filtered_expert_rules':
 
     model.get_layer('large_layer').set_weights(
         [back_select_weight, final_bias])
-    back_select_pred = model.predict(x_test)
+    back_select_pred = model.predict(x_test, verbose=0)
 
     r2 = []
     for drug in drugs:
@@ -361,7 +354,7 @@ if name == 'filtered_expert_rules':
                    'sensitivity': round(stats['sensitivity'], 3),
                    'specificity': round(stats['specificity'], 3),
                    'f1': round(stats['f1'], 3),
-                   'threshold': round(best_thresholds[drug], 2), 'n': n})
+                   'threshold': round(best_thresholds[drug], 4), 'n': n})
 
     metrics_df_2 = pd.DataFrame(r2)
     metrics_df_2.to_csv(

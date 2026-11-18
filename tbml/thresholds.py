@@ -59,3 +59,24 @@ def pick_threshold(y_true, y_pred, target_sens, target_spec=0.98,
     # Floor unreachable at any threshold -> Youden-optimal fallback
     j = tpr - fpr
     return float(thr[np.argmax(j)]), False
+
+
+def threshold_at_spec(y_true, y_pred, target_spec):
+    """
+    Smallest threshold whose specificity is at least `target_spec`, with
+    calls made as y_pred > threshold (as in confusion_stats).
+
+    Unlike pick_threshold there is no fallback: every label lands at the
+    requested specificity (or the nearest achievable point above it), so
+    sensitivities can be compared like-for-like against a reference tool
+    run at that specificity.
+    """
+    y_true = np.asarray(y_true)
+    neg = np.sort(np.asarray(y_pred)[y_true == 0])
+    if len(neg) == 0:
+        raise ValueError("no negatives: specificity is undefined")
+    # need #(neg <= thr) >= ceil(target * n); small epsilon guards against
+    # float error such as 0.98 * 100 = 98.00000000000001
+    k = int(np.ceil(target_spec * len(neg) - 1e-9))
+    k = min(max(k, 1), len(neg))
+    return float(neg[k - 1])
