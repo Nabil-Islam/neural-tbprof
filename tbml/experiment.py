@@ -95,11 +95,18 @@ def build_and_compile(kernel, y_tr, alpha=0.5, neg_weight=1.0, fp_gamma=0.0,
     return model
 
 
-def training_callbacks(early_stopping_patience=8, lr_patience=3):
+# An epoch only counts as an improvement if the validation loss drops by at
+# least this much. Without it, a loss that has plateaued (0.2929 -> 0.29289)
+# keeps "improving" in the 5th decimal and early stopping never triggers.
+MIN_DELTA = 1e-4
+
+
+def training_callbacks(early_stopping_patience=8, lr_patience=3, min_delta=MIN_DELTA):
     import tf_keras as keras
     return [
         keras.callbacks.EarlyStopping(monitor=MONITOR, mode='min',
                                       patience=early_stopping_patience,
+                                      min_delta=min_delta,
                                       restore_best_weights=True),
         keras.callbacks.ReduceLROnPlateau(monitor=MONITOR, mode='min', factor=0.2,
                                           patience=lr_patience, min_lr=1e-6),
