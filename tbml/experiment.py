@@ -74,7 +74,7 @@ def initial_bias(y_tr, pos_weight, neg_weight=1.0):
 
 
 def build_and_compile(kernel, y_tr, alpha=0.5, neg_weight=1.0, fp_gamma=0.0,
-                      extra_metrics=()):
+                      extra_metrics=(), learning_rate=LEARNING_RATE):
     """Anchored dense model, catalogue-initialised, compiled with the weighted loss."""
     import tf_keras as keras
     from tbml.losses import (compute_pos_weight, make_masked_weighted_bce,
@@ -88,7 +88,7 @@ def build_and_compile(kernel, y_tr, alpha=0.5, neg_weight=1.0, fp_gamma=0.0,
         layer_name='large_layer', activation='sigmoid',
         anchor_strength=ANCHOR_STRENGTH)
     model.compile(
-        optimizer=keras.optimizers.Adam(learning_rate=LEARNING_RATE),
+        optimizer=keras.optimizers.Adam(learning_rate=learning_rate),
         loss=make_masked_weighted_bce(pw, neg_weight=neg_weight, fp_gamma=fp_gamma,
                                       normalize='weight'),
         metrics=[masked_binary_crossentropy, *extra_metrics])

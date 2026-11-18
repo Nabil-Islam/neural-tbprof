@@ -38,7 +38,7 @@ from tbml.predictions import save_prediction_tables
 from tbml.models import strip_anchor_regularizers
 from tbml.splits import load_split
 from tbml.reference import reference_specificity
-from tbml.experiment import (DRUGS, BATCH_SIZE, MAX_EPOCHS, load_variant_set,
+from tbml.experiment import (DRUGS, BATCH_SIZE, MAX_EPOCHS, LEARNING_RATE, load_variant_set,
                              build_and_compile, training_callbacks)
 
 OLD_TBPROF = '/data/scratch/projects/punim1703/false_negative/old_tbprof/results'
@@ -63,6 +63,10 @@ ap.add_argument('--filtered-dir', default=f'{OLD_TBPROF}/matrices',
                 help='where filtered_<drug>_snps.csv live (filt ablation)')
 ap.add_argument('--flagged', default=f'{OLD_TBPROF}/flagged_snps.csv')
 ap.add_argument('--seed', type=int, default=0)
+ap.add_argument('--max-epochs', type=int, default=None,
+                help='default: from best_settings.json with --tuned, else MAX_EPOCHS')
+ap.add_argument('--lr', type=float, default=None,
+                help='Adam learning rate (default: from best_settings.json with --tuned)')
 args = ap.parse_args()
 
 set_plot_style()
@@ -87,9 +91,14 @@ if args.tuned:
         best = json.load(f)
     loss_cfg = {k: best[k] for k in ('alpha', 'neg_weight', 'fp_gamma')}
     print(f"loss weights from {best_path}: {loss_cfg}")
+    max_epochs = args.max_epochs or best.get('max_epochs', MAX_EPOCHS)
+    lr = args.lr or best.get('learning_rate', LEARNING_RATE)
 else:
     loss_cfg = dict(alpha=args.alpha, neg_weight=args.neg_weight, fp_gamma=args.fp_gamma)
     print(f"loss weights from command line: {loss_cfg}")
+    max_epochs = args.max_epochs or MAX_EPOCHS
+    lr = args.lr or LEARNING_RATE
+print(f"max epochs {max_epochs}, learning rate {lr}")
 
 # --- Load data ---
 data = load_variant_set(RESULTS, arg)
@@ -113,13 +122,13 @@ print(f"target specificity from {ref_src}")
 
 # --- Build, compile, train ---
 keras.utils.set_random_seed(args.seed)
-model = build_and_compile(kernel, y_tr, **loss_cfg,
+model = build_and_compile(kernel, y_tr, **loss_cfg, learning_rate=lr,
                           extra_metrics=[MaskedF1(), MaskedAUC()])
 
 per_drug_cb = PerDrugHistory(x_val, y_val, drugs)
 history = model.fit(
     x_tr, y_tr,
-    epochs=MAX_EPOCHS,
+    epochs=max_epochs,
     validation_data=(x_val, y_val),
     batch_size=BATCH_SIZE,
     callbacks=[*training_callbacks(), per_drug_cb],
@@ -143,7 +152,10 @@ with open(OUT / f'{name}_run_config.json', 'w') as f:
     json.dump({'loss': loss_cfg, 'val_fold': args.val_fold, 'seed': args.seed,
                'target_spec_source': str(ref_src), 'target_spec': target_spec,
                'thresholds': best_thresholds,
+               'max_epochs': max_epochs, 'learning_rate': lr,
                'epochs_run': len(history.history['loss'])}, f, indent=2)
+if len(history.history['loss']) >= max_epochs:
+    print(f"WARNING: training ran to the {max_epochs}-epoch limit without early stopping")
 
 # --- Save global loss history ---
 loss_df = pd.DataFrame({

@@ -23,6 +23,8 @@ Usage (from repo root):
     python scripts/tune_loss.py er --all --ref-runs <TN/FP json>
     # once all settings are done:
     python scripts/tune_loss.py er --summarise
+    # epoch / learning-rate diagnostic on one fold, kept in tuning/er_diag/:
+    python scripts/tune_loss.py er --setting 0 --folds 0 --max-epochs 300 --tag diag
 
 Outputs in results/metrics/tuning/<set>/:
     setting_XX.csv       per-drug CV scores for one setting
@@ -40,7 +42,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from tbml.experiment import (DRUGS, BATCH_SIZE, MAX_EPOCHS, MONITOR,
+from tbml.experiment import (DRUGS, BATCH_SIZE, MAX_EPOCHS, MONITOR, LEARNING_RATE,
                              load_variant_set, build_and_compile,
                              training_callbacks, per_drug_scores)
 from tbml.reference import reference_specificity
@@ -54,38 +56,52 @@ GRID = [dict(alpha=a, neg_weight=n, fp_gamma=g)
 BASELINE = 0  # alpha=0.5, neg_weight=1, fp_gamma=0: the current loss
 
 
-def run_setting(idx, data, masks, target_spec, out, seed):
+def run_setting(idx, data, masks, target_spec, out, seed, max_epochs, learning_rate,
+                only_folds=None):
     import tf_keras as keras
 
     setting = GRID[idx]
     X, y = data['X'], data['y']
     pool = masks['train_pool']
     fold = masks['fold']
-    folds = sorted(int(k) for k in np.unique(fold[pool]))
+    all_folds = sorted(int(k) for k in np.unique(fold[pool]))
+    folds = all_folds if only_folds is None else [k for k in all_folds if k in only_folds]
 
     oof = np.full(y.shape, np.nan, dtype=np.float32)
     best_epochs = []
+    curves = np.full((len(folds), 2, max_epochs), np.nan, dtype=np.float32)  # train/val loss
 
     for k in folds:
         tr = pool & (fold != k)
         va = pool & (fold == k)
         keras.utils.set_random_seed(seed + k)   # same per fold across settings
-        model = build_and_compile(data['kernel'], y[tr], **setting)
+        model = build_and_compile(data['kernel'], y[tr], **setting,
+                                  learning_rate=learning_rate)
         hist = model.fit(X[tr], y[tr], validation_data=(X[va], y[va]),
-                         epochs=MAX_EPOCHS, batch_size=BATCH_SIZE,
+                         epochs=max_epochs, batch_size=BATCH_SIZE,
                          callbacks=training_callbacks(), verbose=2)
         best_epochs.append(int(np.argmin(hist.history[MONITOR]) + 1))
+        fi = folds.index(k)
+        n_ep = len(hist.history['loss'])
+        curves[fi, 0, :n_ep] = hist.history['loss']
+        curves[fi, 1, :n_ep] = hist.history['val_loss']
         oof[va] = model.predict(X[va], batch_size=4096, verbose=0)
         keras.backend.clear_session()
         print(f"setting {idx} {setting} fold {k}: best epoch {best_epochs[-1]}", flush=True)
 
-    scores = per_drug_scores(y[pool], oof[pool], DRUGS, target_spec)
+    scored = pool & np.isin(fold, folds)
+    scores = per_drug_scores(y[scored], oof[scored], DRUGS, target_spec)
     for key, v in setting.items():
         scores.insert(0, key, v)
     scores.insert(0, 'setting', idx)
     scores.to_csv(out / f'setting_{idx:02d}.csv', index=False)
-    np.savez_compressed(out / f'setting_{idx:02d}_oof.npz', oof=oof[pool],
-                        runs=data['runs'][pool], best_epochs=np.array(best_epochs))
+    np.savez_compressed(out / f'setting_{idx:02d}_oof.npz', oof=oof[scored],
+                        runs=data['runs'][scored], best_epochs=np.array(best_epochs),
+                        folds=np.array(folds), curves=curves,
+                        max_epochs=max_epochs, learning_rate=learning_rate)
+    if max(best_epochs) >= max_epochs:
+        print(f"WARNING: best epoch == max epochs ({max_epochs}) in some folds: "
+              f"still improving when stopped; raise --max-epochs or --lr")
     print(scores[['drug', 'n_resistant', 'sens_at_spec', 'spec', 'pauc']].to_string(index=False))
 
 
@@ -121,6 +137,16 @@ def summarise(out):
     wide = df.pivot_table(index='drug', columns='setting', values='sens_at_spec')
     wide.round(3).to_csv(out / 'sens_at_spec_by_drug.csv')
 
+    capped = []
+    for f in sorted(out.glob('setting_[0-9][0-9]_oof.npz')):
+        z = np.load(f)
+        cap = int(z['max_epochs']) if 'max_epochs' in z else MAX_EPOCHS
+        if (z['best_epochs'] >= cap).any():
+            capped.append(f.name[8:10])
+    if capped:
+        print(f"WARNING: settings {capped} were still improving at the epoch limit; "
+              f"the ranking compares under-trained models")
+
     best = agg.iloc[0]
     oof = np.load(out / f"setting_{int(best['setting']):02d}_oof.npz")
     chosen = {
@@ -131,6 +157,8 @@ def summarise(out):
         'mean_sens_at_spec_cv': float(best['mean_sens_at_spec']),
         'mean_pauc_cv': float(best['mean_pauc']),
         'cv_best_epochs': oof['best_epochs'].tolist(),
+        'max_epochs': int(oof['max_epochs']) if 'max_epochs' in oof else MAX_EPOCHS,
+        'learning_rate': float(oof['learning_rate']) if 'learning_rate' in oof else LEARNING_RATE,
     }
     with open(out / 'best_settings.json', 'w') as f:
         json.dump(chosen, f, indent=2)
@@ -158,10 +186,16 @@ def main():
     ap.add_argument('--ref-csv', default=None,
                     help='fallback: metrics/naiive_perf_metrics.csv (all samples)')
     ap.add_argument('--seed', type=int, default=0)
+    ap.add_argument('--max-epochs', type=int, default=MAX_EPOCHS)
+    ap.add_argument('--lr', type=float, default=LEARNING_RATE, help='Adam learning rate')
+    ap.add_argument('--folds', type=int, nargs='+', default=None,
+                    help='only these CV folds (for quick diagnostics; scores use those folds only)')
+    ap.add_argument('--tag', default=None,
+                    help='write to tuning/<set>_<tag>/ so runs with other epochs/lr are kept apart')
     args = ap.parse_args()
 
     results = Path(args.results)
-    out = results / 'metrics/tuning' / args.variant_set
+    out = results / 'metrics/tuning' / (args.variant_set + (f'_{args.tag}' if args.tag else ''))
     out.mkdir(parents=True, exist_ok=True)
 
     if args.summarise:
@@ -192,7 +226,8 @@ def main():
         if (out / f'setting_{idx:02d}.csv').exists():
             print(f"setting {idx} already done, skipping")
             continue
-        run_setting(idx, data, masks, target_spec, out, args.seed)
+        run_setting(idx, data, masks, target_spec, out, args.seed,
+                    args.max_epochs, args.lr, args.folds)
 
 
 if __name__ == '__main__':
