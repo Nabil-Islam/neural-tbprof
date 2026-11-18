@@ -22,9 +22,9 @@ VARIANT_SETS = {
 
 KERNEL_SCALE = 10.0     # catalogue weights are scaled up before training
 ANCHOR_STRENGTH = 1e-5
-LEARNING_RATE = 1e-3
+LEARNING_RATE = 1e-2      # converges in ~15 epochs to the same val loss as 1e-3 in ~300 (fold-0 diagnostic)
 BATCH_SIZE = 64
-MAX_EPOCHS = 50
+MAX_EPOCHS = 100
 
 # Early stopping / LR schedule watch each setting's own (weighted) loss on
 # the validation data. Not the unweighted BCE: a reweighted model is
