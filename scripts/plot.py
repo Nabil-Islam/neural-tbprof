@@ -131,10 +131,11 @@ def main():
                      fontweight="bold", pad=10)
         legend(fig)
         fig.tight_layout()
-        out = FIGURES / f"{metric}.png"
-        fig.savefig(out, dpi=300, bbox_inches="tight")
+        for ext in ("png", "pdf"):   # pdf for the beamer slides
+            out = FIGURES / f"{metric}.{ext}"
+            fig.savefig(out, dpi=300, bbox_inches="tight")
+            print(f"Saved: {out}")
         plt.close(fig)
-        print(f"Saved: {out}")
 
 
 if __name__ == "__main__":
