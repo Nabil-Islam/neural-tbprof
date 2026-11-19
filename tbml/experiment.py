@@ -34,7 +34,7 @@ MAX_EPOCHS = 100
 MONITOR = 'val_loss'
 
 
-def load_variant_set(results, arg):
+def load_variant_set(results, arg, load_kernel=True):
     """
     Load features, labels, row IDs and the catalogue kernel for one variant set.
     Rows of X and y both follow vcf_list.txt order (make_index.py, label_data.py).
@@ -58,8 +58,10 @@ def load_variant_set(results, arg):
     if X.shape[0] != len(runs):
         raise ValueError(f"matrix has {X.shape[0]} rows but {len(runs)} labelled runs")
 
-    with h5py.File(str(results / f'models/naiive_models/{name}_naiive_model.h5'), 'r') as f:
-        kernel = f['model_weights/large_layer/large_layer/kernel'][:] * KERNEL_SCALE
+    kernel = None
+    if load_kernel:   # the cross-resistance model loads its own starting weights
+        with h5py.File(str(results / f'models/naiive_models/{name}_naiive_model.h5'), 'r') as f:
+            kernel = f['model_weights/large_layer/large_layer/kernel'][:] * KERNEL_SCALE
 
     return dict(X=X, y=y, runs=runs, kernel=kernel, name=name, tname=tname)
 
