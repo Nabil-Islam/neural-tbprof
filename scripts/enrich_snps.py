@@ -10,6 +10,7 @@ columns as before (snp, log_pval, log_or, fn_snp_prop, fn_no_snp_prop,
 fn_count), so flag_snps.py -> filtered_snps.py work unchanged, plus:
     n_fn_strata   number of sub-lineages in which FN isolates carry the variant
     crude_log_or  unstratified log10 odds ratio, for comparison
+    exact_p       True if log_pval is exact rather than the CMH approximation
 
 Two problems this addresses:
 
@@ -63,11 +64,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import scipy.sparse as sp
-from scipy.stats import chi2, fisher_exact
+from scipy.stats import chi2, fisher_exact, hypergeom
 from tqdm import tqdm
 
 OUT_COLS = ['snp', 'log_pval', 'log_or', 'fn_snp_prop', 'fn_no_snp_prop',
-            'fn_count', 'n_fn_strata', 'crude_log_or']
+            'fn_count', 'n_fn_strata', 'crude_log_or', 'exact_p']
 
 
 # ---------------------------------------------------------------------------
@@ -151,7 +152,32 @@ def _indicator(labels, levels):
                          shape=(len(levels), len(labels)))
 
 
-def cmh(fn, tn, fn_strata, tn_strata, cols, fn_count_labels=None):
+def exact_stratified_p(a, n1, n0, m1):
+    """
+    Exact two-sided p-value for the CMH null (no association in any stratum),
+    for one variant. Given each stratum's margins, the number of carriers
+    that are FN is hypergeometric; the total over strata is the convolution
+    of those. p = sum of probabilities of totals no more likely than the
+    observed one (as Fisher's exact test does for a single table).
+    a, n1, n0, m1: per-stratum arrays (FN carriers, FN, TN, carriers).
+    """
+    pmf = np.array([1.0])
+    for ak, n1k, n0k, m1k in zip(a, n1, n0, m1):
+        if m1k == 0:
+            continue
+        lo, hi = int(max(0, m1k - n0k)), int(min(m1k, n1k))
+        x = np.arange(lo, hi + 1)
+        pk = hypergeom.pmf(x, int(n1k + n0k), int(n1k), int(m1k))
+        pk = np.concatenate([np.zeros(lo), pk])        # index = number of FN carriers
+        pmf = np.convolve(pmf, pk)
+    obs = int(round(a.sum()))
+    if obs >= len(pmf):
+        return 0.0
+    return float(min(1.0, pmf[pmf <= pmf[obs] * (1 + 1e-7)].sum()))
+
+
+def cmh(fn, tn, fn_strata, tn_strata, cols, fn_count_labels=None,
+        alpha=0.05, exact_max_carriers=200):
     """
     Cochran-Mantel-Haenszel test (with continuity correction) and
     Mantel-Haenszel common odds ratio, for each column in `cols`, stratified
@@ -159,7 +185,11 @@ def cmh(fn, tn, fn_strata, tn_strata, cols, fn_count_labels=None):
     c = TN carriers, d = TN non-carriers.
     fn_count_labels: labels used for n_fn_strata (default: fn_strata), so
     the count can be over lineages when the test strata are finer.
-    Returns p, mh_or, n_fn_strata (arrays over cols).
+    The CMH chi-square approximation is badly over-confident for rare
+    variants (2 carriers, both FN, can get p ~ 1e-13 instead of ~ 1e-3),
+    so variants with p <= alpha and at most exact_max_carriers carriers get
+    an exact p-value instead (exact_max_carriers=0 disables this).
+    Returns p, mh_or, n_fn_strata, is_exact (arrays over cols).
     """
     levels = sorted(set(fn_strata) | set(tn_strata))
     S_fn = _indicator(fn_strata, levels)
@@ -185,13 +215,23 @@ def cmh(fn, tn, fn_strata, tn_strata, cols, fn_count_labels=None):
         den = np.where(ok, b * c / N, 0.0).sum(0)
         mh_or = np.where(den > 0, num / den, np.where(num > 0, np.inf, np.nan))
 
+    is_exact = np.zeros(len(cols), dtype=bool)
+    if exact_max_carriers > 0:
+        sel = ok.ravel()                       # strata with both FN and TN
+        carriers = m1[sel].sum(0)
+        todo = np.flatnonzero((p <= alpha) & (carriers <= exact_max_carriers))
+        n1s, n0s = n1.ravel()[sel], n0.ravel()[sel]
+        for j in todo:
+            p[j] = exact_stratified_p(a[sel, j], n1s, n0s, m1[sel, j])
+            is_exact[j] = True
+
     if fn_count_labels is None:
         n_fn_strata = (a > 0).sum(0)
     else:
         lv = sorted(set(fn_count_labels))
         a_l = (_indicator(fn_count_labels, lv) @ fn[:, cols]).tocsr()
         n_fn_strata = np.asarray((a_l > 0).sum(0)).ravel()
-    return p, mh_or, n_fn_strata
+    return p, mh_or, n_fn_strata, is_exact
 
 
 def fisher(fn_ones, fn_zeros, tn_ones, tn_zeros):
@@ -227,6 +267,9 @@ def main():
     ap.add_argument('--min-fn-strata', type=int, default=1,
                     help='keep only variants carried by FNs in at least this many '
                          'sub-lineages (2 removes single-cluster variants)')
+    ap.add_argument('--exact-max-carriers', type=int, default=200,
+                    help='exact p-value for variants with at most this many carriers '
+                         '(the CMH approximation is over-confident for rare variants); 0 = off')
     ap.add_argument('--co-resistance', action='store_true',
                     help='also stratify by rifampicin / isoniazid phenotype (controls for MDR)')
     ap.add_argument('--co-drugs', nargs='+', default=['rifampicin', 'isoniazid'],
@@ -309,11 +352,13 @@ def main():
                 tn_test = [label(r, l) for r, l in zip(tn_runs, tn_lin)]
             else:
                 fn_test, tn_test = fn_lin, tn_lin
-            p, odds, n_strata = cmh(fn.tocsc(), tn.tocsc(), fn_test, tn_test, cols,
-                                    fn_count_labels=fn_lin)
+            p, odds, n_strata, is_exact = cmh(
+                fn.tocsc(), tn.tocsc(), fn_test, tn_test, cols, fn_count_labels=fn_lin,
+                alpha=args.alpha, exact_max_carriers=args.exact_max_carriers)
         else:
             p, odds = fisher(fo, fz, to, tz)
             n_strata = np.full(len(cols), -1)
+            is_exact = np.ones(len(cols), dtype=bool)
 
         with np.errstate(invalid='ignore', divide='ignore'):
             fn_snp_prop = fo / (fo + to)
@@ -334,6 +379,7 @@ def main():
             'fn_count': fo[keep].astype(int),
             'n_fn_strata': n_strata[keep].astype(int),
             'crude_log_or': np.round(log10_or_inf(crude_or[keep]), 3),
+            'exact_p': is_exact[keep],
         }, columns=OUT_COLS)
 
         log.append({'drug': drug, 'fn_used': n_fn, 'fn_total': n_fn_all,
