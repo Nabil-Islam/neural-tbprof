@@ -4,9 +4,6 @@ import re
 import json
 from tqdm import tqdm
 
-samples = pd.read_csv(
-    '/data/scratch/projects/punim1703/false_negative/old_tbprof/resources/data/samples.csv')
-
 who_df = pd.read_csv(
     '/data/scratch/projects/punim1703/nn_tb/REVISION/data/sheet1.csv', skiprows=2, low_memory=False)
 
@@ -85,73 +82,60 @@ with open('/data/scratch/projects/punim1703/nn_tb/REVISION/results/essentials/vc
 
 vcfs = [vcf.strip('\n') for vcf in vcfs]
 
+# Expert rules are applied to every isolate's variants, regardless of
+# phenotype, the way TB-Profiler applies them. (An earlier version only
+# looked at isolates resistant to each drug, across the whole dataset: that
+# used test-set phenotypes to choose features.)
+
+
+def codon_from_hgvs_p(hgvs_p):
+    """'p.Ser450Leu' -> 450. HGVS.p (ANN field 10) holds the amino-acid change;
+    HGVS.c (field 9) holds a nucleotide position, which is not a codon."""
+    m = re.match(r'p\.[A-Za-z*]+(\d+)', hgvs_p)
+    return int(m.group(1)) if m else None
+
+
+def rule_applies(drug_l, gene_name, effect, hgvs_p):
+    """True if an expert rule makes this variant a resistance feature for drug."""
+    if effect == 'synonymous_variant':
+        return False
+    if drug_l == 'rifampicin' and gene_name == 'rpoB':        # RRDR rule
+        codon = codon_from_hgvs_p(hgvs_p)
+        return codon is not None and codon in RRDR_CODONS
+    if gene_name in ALL_NONSYN_GENES.get(drug_l, []):          # any non-synonymous change
+        return True
+    if gene_name in LOF_ONLY_GENES.get(drug_l, []):            # loss-of-function only
+        return effect in LOF_TYPES
+    return False                                               # no rule for this drug/gene
+
+
 for vcf in tqdm(vcfs, total=len(vcfs)):
-
-    run = vcf.split("/")[-1].split(".")[0]
-
-    sample_row = samples.loc[samples['run'] == run]
-
-    if sample_row.empty:
-        continue
-
-    sample_row = sample_row.iloc[0]
-
-    resistant_drugs = {
-        drug: genes
-        for drug, genes in drug_dict.items()
-        if sample_row.get(drug) == 'R'
-    }
-
-    if not resistant_drugs:
-        continue
-
     for variant in VCF(vcf):
         ann = variant.INFO.get('ANN')
-
         if not ann:
             continue
+        pos = variant.start + 1
+        ref = variant.REF
 
-        ann_s = ann.split('|')
-        var_type = ann_s[1]
-
-        if var_type in ('synonymous_variant'):
-            continue
-
-        gene_name = locus_to_name.get(ann_s[3], ann_s[3])
-        for drug, genes in resistant_drugs.items():
-
-            drug_l = drug.lower()
-            if gene_name not in genes:
+        # one variant can carry several annotations (overlapping genes,
+        # upstream regions, other alleles): check each, not just the first
+        for entry in ann.split(','):
+            f = entry.split('|')
+            if len(f) < 11:
                 continue
-
-            # rpoB RRDR rule - non-synonymous with RRDR only
-            if drug_l == 'rifampicin' and gene_name == 'rpoB':
-                # adjust parsing as needed
-                codon_match = re.search(r'\d+', ann_s[9])
-                if not codon_match:
-                    continue
-                codon = int(codon_match.group())
-                if var_type == 'synonymous_variant' or codon not in RRDR_CODONS:
-                    continue
-
-            # LoF-only genes
-            elif gene_name in ALL_NONSYN_GENES.get(drug_l, []):
-                pass
-
-            elif gene_name in LOF_ONLY_GENES.get(drug_l, []):
-                if var_type not in LOF_TYPES:
-                    continue
-
-            # No expert rule for this drug/gene combo - just old method, where we picked up LoF variants
-            else:
+            allele, effects, gene_id, hgvs_p = f[0], f[1], f[3], f[10]
+            if allele not in variant.ALT:
                 continue
+            gene_name = locus_to_name.get(gene_id, gene_id)
 
-            pos = variant.start + 1
-            ref = variant.REF
+            # an annotation can list several effects joined by '&'
+            for effect in effects.split('&'):
+                for drug, genes in drug_dict.items():
+                    if gene_name not in genes:
+                        continue
+                    if rule_applies(drug.lower(), gene_name, effect, hgvs_p):
+                        snp_dict.setdefault(drug, {})[f'{pos}_{ref}_{allele}'] = 1
 
-            for alt in variant.ALT:
-                snp_str = f'{pos}_{ref}_{alt}'
-                snp_dict.setdefault(drug, {})[snp_str] = 1
 print(drug_dict)
 print(snp_dict)
 
