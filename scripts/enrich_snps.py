@@ -38,9 +38,9 @@ Sub-lineages come from the `lineage` column of resources/data/samples.csv
 to shallower levels, then 'other'). Mixed or unknown calls form one group.
 
 usage (from the old_tbprof root):
-    python scripts/fisher.py --exclude-fold 0 \
+    python scripts/cmh.py --exclude-fold 0 \
         --splits /data/scratch/projects/punim1703/nn_tb/REVISION/results/essentials/splits.csv
-    python scripts/fisher.py ... --min-fn-strata 2
+    python scripts/cmh.py ... --min-fn-strata 2
 """
 
 import argparse
