@@ -32,6 +32,18 @@ Two problems this addresses:
    drops variants seen in FNs of only one sub-lineage.
    --test fisher reproduces the old unstratified Fisher test.
 
+3. Co-resistance (--co-resistance). False negatives for many drugs are
+   mostly MDR isolates while true negatives mostly aren't (e.g. ethambutol:
+   60% vs 6%), so variants that travel with MDR (compensatory rpoC/rpoA
+   mutations, hitchhikers) look enriched within every lineage. With
+   --co-resistance each lineage stratum is split by rifampicin and
+   isoniazid phenotype (R / S / untested), so a variant must be enriched
+   in FNs compared with isolates of the same lineage and the same RIF/INH
+   status. For rifampicin itself only isoniazid is used, and vice versa,
+   so the outcome being tested is never a stratifier. Phenotypes come from
+   --phenotypes (training isolates only, as the rows already are).
+   n_fn_strata still counts lineages, not lineage x phenotype groups.
+
 Sub-lineages come from the `lineage` column of resources/data/samples.csv
 (e.g. lineage2.2.1). Each isolate is placed at the deepest level, up to
 --level, whose group has at least --min-stratum-size isolates (falling back
@@ -41,6 +53,7 @@ usage (from the old_tbprof root):
     python scripts/cmh.py --exclude-fold 0 \
         --splits /data/scratch/projects/punim1703/nn_tb/REVISION/results/essentials/splits.csv
     python scripts/cmh.py ... --min-fn-strata 2
+    python scripts/cmh.py ... --min-fn-strata 2 --co-resistance   # also control for MDR
 """
 
 import argparse
@@ -138,12 +151,14 @@ def _indicator(labels, levels):
                          shape=(len(levels), len(labels)))
 
 
-def cmh(fn, tn, fn_strata, tn_strata, cols):
+def cmh(fn, tn, fn_strata, tn_strata, cols, fn_count_labels=None):
     """
     Cochran-Mantel-Haenszel test (with continuity correction) and
     Mantel-Haenszel common odds ratio, for each column in `cols`, stratified
     by sub-lineage. Per stratum k:  a = FN carriers, b = FN non-carriers,
     c = TN carriers, d = TN non-carriers.
+    fn_count_labels: labels used for n_fn_strata (default: fn_strata), so
+    the count can be over lineages when the test strata are finer.
     Returns p, mh_or, n_fn_strata (arrays over cols).
     """
     levels = sorted(set(fn_strata) | set(tn_strata))
@@ -170,7 +185,12 @@ def cmh(fn, tn, fn_strata, tn_strata, cols):
         den = np.where(ok, b * c / N, 0.0).sum(0)
         mh_or = np.where(den > 0, num / den, np.where(num > 0, np.inf, np.nan))
 
-    n_fn_strata = (a > 0).sum(0)
+    if fn_count_labels is None:
+        n_fn_strata = (a > 0).sum(0)
+    else:
+        lv = sorted(set(fn_count_labels))
+        a_l = (_indicator(fn_count_labels, lv) @ fn[:, cols]).tocsr()
+        n_fn_strata = np.asarray((a_l > 0).sum(0)).ravel()
     return p, mh_or, n_fn_strata
 
 
@@ -207,6 +227,12 @@ def main():
     ap.add_argument('--min-fn-strata', type=int, default=1,
                     help='keep only variants carried by FNs in at least this many '
                          'sub-lineages (2 removes single-cluster variants)')
+    ap.add_argument('--co-resistance', action='store_true',
+                    help='also stratify by rifampicin / isoniazid phenotype (controls for MDR)')
+    ap.add_argument('--co-drugs', nargs='+', default=['rifampicin', 'isoniazid'],
+                    help='phenotypes used by --co-resistance')
+    ap.add_argument('--phenotypes', default='resources/data/samples.csv',
+                    help='wide CSV: run + one R/S column per drug (for --co-resistance)')
     ap.add_argument('--exclude-fold', type=int, action='append', default=[],
                     help='CV fold(s) to leave out as well (repeatable)')
     ap.add_argument('--alpha', type=float, default=0.05,
@@ -226,6 +252,10 @@ def main():
         lin = pd.read_csv(args.lineage, usecols=['run', 'lineage'], dtype=str)
         strata = assign_strata(dict(zip(lin['run'], lin['lineage'])),
                                args.level, args.min_stratum_size)
+        if args.co_resistance:
+            ph = pd.read_csv(args.phenotypes, usecols=['run', *args.co_drugs],
+                             dtype=str).set_index('run')
+            print(f"co-resistance strata: lineage x {' x '.join(args.co_drugs)} phenotype")
         sizes = pd.Series(strata).value_counts()
         print(f"{len(sizes)} sub-lineage strata (level <= {args.level}, "
               f">= {args.min_stratum_size} isolates); largest: "
@@ -264,9 +294,23 @@ def main():
             if missing:
                 raise SystemExit(f"{drug}: {len(missing)} runs have no lineage in "
                                  f"{args.lineage} (e.g. {missing[:3]})")
-            p, odds, n_strata = cmh(fn.tocsc(), tn.tocsc(),
-                                    [strata[r] for r in fn_runs],
-                                    [strata[r] for r in tn_runs], cols)
+            fn_lin = [strata[r] for r in fn_runs]
+            tn_lin = [strata[r] for r in tn_runs]
+            if args.co_resistance:
+                co = [c for c in args.co_drugs if c != drug]   # never the drug being tested
+
+                def label(run, lin_label):
+                    vals = []
+                    for c in co:
+                        v = ph[c].get(run) if run in ph.index else None
+                        vals.append(f"{c[:3]}{v if v in ('R', 'S') else 'NA'}")
+                    return lin_label + '|' + ','.join(vals)
+                fn_test = [label(r, l) for r, l in zip(fn_runs, fn_lin)]
+                tn_test = [label(r, l) for r, l in zip(tn_runs, tn_lin)]
+            else:
+                fn_test, tn_test = fn_lin, tn_lin
+            p, odds, n_strata = cmh(fn.tocsc(), tn.tocsc(), fn_test, tn_test, cols,
+                                    fn_count_labels=fn_lin)
         else:
             p, odds = fisher(fo, fz, to, tz)
             n_strata = np.full(len(cols), -1)
