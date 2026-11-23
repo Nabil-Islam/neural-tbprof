@@ -55,14 +55,15 @@ for i, row in who_df.iterrows():
 
 print(drug_dict)
 
-ALL_NONSYN_GENES = {
-    'pyrazinamide': ['pncA'],
-    'ethionamide':  ['ethA'],
-    'capreomycin':  ['tlyA'],
-    'bedaquiline':  ['Rv0678', 'pepQ'],
-    'clofazimine':  ['Rv0678', 'pepQ'],
-    'delamanid':    ['ddn', 'fbiA', 'fbiB', 'fbiC', 'fgd1', 'Rv2983'],
-}
+# WHO catalogue 2nd ed. (2023), Table 1 "additional grading rules" (-> Group 2):
+#   rpoB RRDR (codons 426-452): any non-silent change         -> RIF
+#   all other rules are loss-of-function only (in-frame indels excluded):
+#   katG (INH), pncA (PZA), Rv0678/pepQ (BDQ, CFZ),
+#   ddn/fbiA/fbiB/fbiC/fgd1/Rv2983 (DLM), gid (STM), ethA (ETO), tlyA (CAP)
+# An earlier version treated pncA, ethA, tlyA, Rv0678/pepQ and the DLM genes
+# as "any non-synonymous change", which pulled in many neutral missense
+# polymorphisms and cut sensitivity at matched specificity.
+ALL_NONSYN_GENES = {}
 
 RRDR_CODONS = range(426, 453)  # rpoB RRDR
 
@@ -70,8 +71,14 @@ LOF_TYPES = {'stop_gained', 'frameshift_variant',
              'feature_ablation', 'start_lost'}
 
 LOF_ONLY_GENES = {
-    'isoniazid': ['katG'],
-    'streptomycin': ['gid']
+    'isoniazid':    ['katG'],
+    'streptomycin': ['gid'],
+    'pyrazinamide': ['pncA'],
+    'ethionamide':  ['ethA'],
+    'capreomycin':  ['tlyA'],
+    'bedaquiline':  ['Rv0678', 'pepQ'],
+    'clofazimine':  ['Rv0678', 'pepQ'],
+    'delamanid':    ['ddn', 'fbiA', 'fbiB', 'fbiC', 'fgd1', 'Rv2983'],
 }
 
 snp_dict = {drug: {} for drug in drug_dict.keys()}
